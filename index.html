@@ -1,0 +1,2148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DWLR Configurator</title>
+<style>
+:root {
+  --bg: #f3f5f8; --surface: #ffffff; --surface-2: #f7f9fb; --text: #15202b; --muted: #5d6b78; --line: #dfe5eb;
+  --accent: #0b6bcb; --accent-soft: #e6f0fb; --accent-ink: #ffffff;
+  --ok: #18804a; --ok-soft: #e5f4ec; --warn: #a86b00; --warn-soft: #fbf1dc; --bad: #c0352b; --bad-soft: #fbe7e5;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+  --radius: 12px; --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0e1318; --surface: #161d24; --surface-2: #1b232b; --text: #e6edf3; --muted: #93a2b0; --line: #26313b;
+          --accent: #4ba3ff; --accent-soft: #15283c; --accent-ink: #08111c;
+          --ok: #45c47c; --ok-soft: #12291c; --warn: #e2ad4c; --warn-soft: #2b2312; --bad: #ff6f61; --bad-soft: #2f1715;
+          --shadow: none; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.hidden { display: none !important; }
+.muted { color: var(--muted); }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.mono { font-family: var(--mono); font-size: 13px; }
+
+/* ---------- top bar ---------- */
+.topbar { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
+.topbar-row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; max-width: 1180px; margin: 0 auto; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.brand-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 13px; letter-spacing: .02em; }
+.devname { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spacer { flex: 1; }
+.conn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.conn.on .dot { background: var(--ok); } .conn.busy .dot { background: var(--warn); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+
+.statusstrip { display: flex; gap: 8px; padding: 0 16px 10px; max-width: 1180px; margin: 0 auto; overflow-x: auto; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--line); white-space: nowrap; }
+.chip.ok { background: var(--ok-soft); border-color: transparent; } .chip.warn { background: var(--warn-soft); border-color: transparent; } .chip.bad { background: var(--bad-soft); border-color: transparent; }
+.bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 12px; }
+.bars i { width: 3px; background: var(--line); border-radius: 1px; }
+.bars i:nth-child(1) { height: 4px; } .bars i:nth-child(2) { height: 7px; } .bars i:nth-child(3) { height: 10px; } .bars i:nth-child(4) { height: 12px; }
+.bars i.on { background: currentColor; }
+
+nav.tabs { display: flex; gap: 2px; padding: 0 12px; max-width: 1180px; margin: 0 auto; overflow-x: auto; scrollbar-width: none; }
+nav.tabs button { border: 0; background: none; padding: 10px 12px; color: var(--muted); border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; font-weight: 500; }
+nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+nav.tabs .badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); font-size: 11px; margin-left: 4px; }
+
+main { max-width: 1180px; margin: 0 auto; padding: 16px 16px 40px; }
+.page-title { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; flex-wrap: wrap; }
+.page-title h1 { font-size: 20px; margin: 0; }
+
+/* ---------- cards & layout ---------- */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+.card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card h2 .muted { font-weight: 400; font-size: 13px; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.kpi { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.kpi .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.kpi .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.kpi .s { font-size: 12.5px; margin-top: 2px; }
+.kv { display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 6px 14px; font-size: 14px; }
+.kv > div:nth-child(odd) { color: var(--muted); }
+.kv > div:nth-child(even) { overflow-wrap: anywhere; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.pill.ok { background: var(--ok-soft); } .pill.warn { background: var(--warn-soft); } .pill.bad { background: var(--bad-soft); } .pill.muted { background: var(--surface-2); }
+
+/* ---------- controls ---------- */
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 9px; cursor: pointer; font-weight: 500; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.05); }
+.btn.danger { color: var(--bad); border-color: var(--bad); }
+.btn.small { padding: 5px 10px; font-size: 13px; }
+.btn:disabled { opacity: .55; cursor: default; }
+.btn .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+input[type=text], input[type=number], input[type=password], input[type=date], select, textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.form { display: grid; gap: 12px 18px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.field .hint { font-size: 12px; color: var(--muted); margin-top: 3px; min-height: 1em; }
+.field.changed input, .field.changed select { border-color: var(--accent); background: var(--accent-soft); }
+.field.invalid input { border-color: var(--bad); }
+.field .hint.ok { color: var(--ok); } .field .hint.bad { color: var(--bad); }
+.savebar { position: sticky; bottom: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+.tablewrap { overflow-x: auto; }
+
+/* ---------- field help ("?") ---------- */
+.field { position: relative; }
+.field .lblrow { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.field .lblrow label { margin: 0; }
+.help { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted);
+  font: 700 11px/16px system-ui, sans-serif; padding: 0; cursor: help; }
+.help:hover, .help:focus { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); outline: none; }
+.tip { display: none; position: absolute; z-index: 20; left: 0; right: 0; top: 100%; margin-top: 4px; padding: 10px 12px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 10px 28px rgba(0,0,0,.22); font-size: 13px; line-height: 1.5; color: var(--text); }
+.tip b { display: block; margin-bottom: 4px; }
+.tip p { margin: 0 0 6px; } .tip p:last-child { margin: 0; }
+.tip .ex { color: var(--muted); font-size: 12.5px; }
+.field:has(.help:hover) .tip, .field:has(.help:focus) .tip { display: block; }
+
+/* ---------- sensor installation diagram ---------- */
+:root { --soil: #d9c3a0; --soil-line: #b99a6c; --bore: #8d7a63; --water: #3d8fe0; --water-2: #1f6fc0; --casing: #6b7785; --sky: #e9f2fb; }
+@media (prefers-color-scheme: dark) { :root { --soil: #3b3023; --soil-line: #57462f; --bore: #241d15; --water: #2a6fb8; --water-2: #1b4f88; --casing: #8a98a8; --sky: #142130; } }
+.sensor-layout { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 18px; align-items: start; }
+@media (max-width: 860px) { .sensor-layout { grid-template-columns: 1fr; } }
+.sensor-layout > * { min-width: 0; }
+.well { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
+.well svg { width: 100%; height: auto; display: block; }
+.well .sky { fill: var(--sky); } .well .soil { fill: var(--soil); } .well .soil-line { stroke: var(--soil-line); stroke-width: 1.2; }
+.well .bore { fill: var(--bore); } .well .ground { stroke: #5c8a3a; stroke-width: 3; } .well .grass { stroke: #5c8a3a; stroke-width: 1.5; }
+.well .casing { fill: var(--casing); } .well .water { fill: url(#sdWaterGrad); } .well .wave { fill: var(--water); opacity: .9; }
+.well .logger { fill: var(--surface); stroke: var(--casing); stroke-width: 1.5; } .well .screen { fill: #0b1016; } .well .screen-t { fill: #6fdc8c; font: 700 8px var(--mono); }
+.well .cable { stroke: #222; stroke-width: 2.2; fill: none; } .well .cable-flow { stroke: #ffd24d; stroke-width: 2.2; fill: none; stroke-dasharray: 3 9; animation: flow 1.1s linear infinite; }
+.well .sensor { fill: #c7ced6; stroke: #4a5560; stroke-width: 1.2; } .well .pulse { fill: none; stroke: #ffd24d; stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: pulse 2s ease-out infinite; }
+.well .lbl { font: 600 11px system-ui, sans-serif; fill: var(--text); } .well .lbl2 { font: 11px system-ui, sans-serif; fill: var(--muted); }
+.well .note { font: 600 12px system-ui, sans-serif; fill: var(--warn); }
+.well .dim line { stroke: var(--muted); stroke-width: 1.3; } .well .dim .badge { fill: var(--surface); stroke: var(--muted); stroke-width: 1.3; }
+.well .dim text { font: 700 10px system-ui, sans-serif; fill: var(--muted); text-anchor: middle; dominant-baseline: central; }
+.well .dim.result line { stroke: var(--ok); } .well .dim.result .badge { stroke: var(--ok); } .well .dim.result text { fill: var(--ok); }
+.well .dim.hl line { stroke: var(--accent); stroke-width: 2.4; } .well .dim.hl .badge { stroke: var(--accent); fill: var(--accent); } .well .dim.hl text { fill: var(--accent-ink); }
+.well .moving { transition: transform .8s ease; }
+.well .wave-move { animation: wave 2.6s linear infinite; }
+@keyframes wave { to { transform: translateX(-24px); } }
+@keyframes flow { to { stroke-dashoffset: 24; } }
+@keyframes pulse { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .well .wave-move, .well .cable-flow, .well .pulse { animation: none; } .well .moving { transition: none; } }
+.legend { display: grid; gap: 4px; margin-top: 10px; font-size: 13.5px; }
+.legend .row { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 4px 6px; border-radius: 8px; cursor: default; }
+.legend .row:hover, .legend .row.hl { background: var(--accent-soft); }
+.legend .b { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--muted); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--muted); }
+.legend .row.result .b { border-color: var(--ok); color: var(--ok); }
+.legend .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+.calc { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); font: 12.5px/1.6 var(--mono); overflow-x: auto; white-space: pre; }
+.warnchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.warnchips span { padding: 3px 10px; border-radius: 999px; font-size: 12.5px; background: var(--warn-soft); color: var(--warn); }
+.warnchips span.bad { background: var(--bad-soft); color: var(--bad); } .warnchips span.ok { background: var(--ok-soft); color: var(--ok); }
+.conv { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 10px; font-size: 13.5px; }
+.conv input { width: 96px; } .conv select { width: auto; }
+details.guide { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; background: var(--surface-2); }
+details.guide summary { cursor: pointer; padding: 10px 0; font-weight: 600; }
+details.guide ol { margin: 0 0 12px; padding-left: 20px; font-size: 13.5px; line-height: 1.6; }
+details.guide li { margin-bottom: 6px; }
+
+/* ---------- installation wizard ---------- */
+.wz { display: grid; grid-template-columns: 250px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .wz { grid-template-columns: 1fr; } .wz-steps { display: flex; overflow-x: auto; gap: 4px; } .wz-steps li small { display: none; } .wz-steps li { min-width: max-content; } }
+.wz > * { min-width: 0; }
+.wz-steps { list-style: none; margin: 0; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.wz-steps li { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; }
+.wz-steps li:hover { background: var(--surface-2); }
+.wz-steps li.cur { background: var(--accent-soft); }
+.wz-steps li b { display: block; font-size: 14px; } .wz-steps li small { color: var(--muted); font-size: 12px; }
+.wz-steps .n { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--surface-2); border: 1px solid var(--line); }
+.wz-steps li.cur .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.wz-steps li.done .n { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.wz-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; } .wz-head h2 { margin: 0; flex: 1; }
+.wz-head progress { width: 140px; height: 8px; accent-color: var(--accent); }
+.wz-foot { display: flex; gap: 10px; align-items: center; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.bigval { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; } .bigsm { font-weight: 600; font-variant-numeric: tabular-nums; }
+.small { font-size: 12.5px; }
+.guide-list { margin: 0 0 12px; padding-left: 20px; line-height: 1.6; font-size: 14px; }
+.card.inner { margin-top: 12px; background: var(--surface-2); box-shadow: none; }
+.stab { display: inline-flex; gap: 8px; align-items: center; margin-top: 10px; padding: 6px 12px; border-radius: 999px; background: var(--surface-2); font-size: 13px; }
+.stab span { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.stab.ok { background: var(--ok-soft); color: var(--ok); } .stab.ok span { background: var(--ok); }
+.stab.warn { background: var(--warn-soft); color: var(--warn); } .stab.warn span { background: var(--warn); animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+.setup-banner { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border-left: 4px solid var(--accent); }
+
+/* ---------- intro ---------- */
+.intro { max-width: 620px; margin: 40px auto; text-align: center; }
+.intro .big { width: 64px; height: 64px; border-radius: 16px; margin: 0 auto 16px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 800; }
+.intro ol { text-align: left; display: inline-block; color: var(--muted); }
+
+/* ---------- steps / progress ---------- */
+.steps { list-style: none; padding: 0; margin: 0; }
+.steps li { display: grid; grid-template-columns: 26px 110px 1fr; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); align-items: center; }
+.steps li:last-child { border-bottom: 0; }
+.mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--surface-2); }
+.mark.ok { background: var(--ok-soft); color: var(--ok); } .mark.bad { background: var(--bad-soft); color: var(--bad); } .mark.run { background: var(--warn-soft); color: var(--warn); }
+.progress-states { display: flex; gap: 6px; flex-wrap: wrap; }
+.progress-states span { padding: 3px 10px; border-radius: 999px; font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); }
+.progress-states span.done { color: var(--ok); background: var(--ok-soft); border-color: transparent; }
+.progress-states span.now { color: var(--warn); background: var(--warn-soft); border-color: transparent; font-weight: 600; }
+
+/* ---------- terminal ---------- */
+.term { background: #0b1016; color: #d6e2ee; border-radius: 10px; font: 12.5px/1.45 var(--mono); height: min(60vh, 560px); overflow: auto; padding: 8px 0; }
+.term .ln { display: grid; grid-template-columns: 92px 18px 1fr; gap: 6px; padding: 1px 10px; }
+.term .ln:hover { background: #121a23; }
+.term .t { color: #6f8396; }
+.term .d.tx { color: #63b3ff; } .term .d.rx { color: #5fd38d; } .term .d.info { color: #c9a24b; } .term .d.err { color: #ff7b72; }
+.term .m { white-space: pre-wrap; word-break: break-word; cursor: pointer; }
+.term .m.clip { max-height: 1.45em; overflow: hidden; }
+.term .m .k { color: #9cdcfe; } .term .m .s { color: #ce9178; } .term .m .n { color: #b5cea8; } .term .m .b { color: #569cd6; }
+.term .empty { color: #6f8396; padding: 10px; }
+.termbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.termbar input[type=text] { width: auto; flex: 1; min-width: 160px; }
+.cmdline { display: flex; gap: 8px; margin-top: 10px; }
+.cmdline input { flex: 1; font-family: var(--mono); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.chips button { border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 3px 10px; font: 12.5px var(--mono); cursor: pointer; }
+.chips button:hover { border-color: var(--accent); }
+
+/* ---------- dialogs & toasts ---------- */
+dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; background: var(--surface); color: var(--text); width: min(420px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+dialog::backdrop { background: rgba(10, 15, 20, .45); }
+dialog .dbody { padding: 18px 18px 8px; }
+dialog h3 { margin: 0 0 8px; font-size: 17px; }
+dialog .dfoot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; }
+.pin { font: 600 26px/1 var(--mono); letter-spacing: .3em; text-align: center; padding: 12px !important; }
+#toasts { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; flex-direction: column; gap: 8px; max-width: min(380px, calc(100vw - 32px)); }
+.toast { padding: 10px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,.18); font-size: 14px; animation: rise .18s ease-out; }
+.toast.ok { border-left-color: var(--ok); } .toast.bad { border-left-color: var(--bad); } .toast.warn { border-left-color: var(--warn); }
+@keyframes rise { from { transform: translateY(8px); opacity: 0; } }
+pre.json { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: 12.5px/1.45 var(--mono); max-height: 360px; overflow: auto; margin: 0; white-space: pre-wrap; }
+pre.json .k { color: var(--accent); } pre.json .s { color: var(--warn); } pre.json .n { color: var(--ok); } pre.json .b { color: var(--accent); }
+
+@media (max-width: 640px) {
+  .topbar-row { padding: 8px 12px; } main { padding: 12px; }
+  .brand span { display: none; } .devname { display: none; }
+  .kpi .v { font-size: 22px; }
+  .steps li { grid-template-columns: 26px 1fr; } .steps li > :nth-child(3) { grid-column: 2; }
+  .term .ln { grid-template-columns: 64px 14px 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-row">
+    <div class="brand"><div class="brand-mark">DW</div><span>DWLR Configurator</span></div>
+    <div class="devname" id="devName"></div>
+    <div class="spacer"></div>
+    <span class="conn" id="conn"><span class="dot"></span><span id="connText">Disconnected</span></span>
+    <button class="btn primary" id="btnConnect">Connect</button>
+  </div>
+  <div class="statusstrip hidden" id="strip">
+    <span class="chip mono" id="chipMac" title="Tap to copy" style="cursor:pointer">MAC –</span>
+    <span class="chip" id="chipNet">Network –</span>
+    <span class="chip" id="chipSig"><span class="bars"><i></i><i></i><i></i><i></i></span><span>–</span></span>
+    <span class="chip" id="chipCloud">Cloud –</span>
+    <span class="chip" id="chipAlarm">No alarms</span>
+    <span class="chip" id="chipAge">–</span>
+  </div>
+  <nav class="tabs hidden" id="tabs">
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="setup">Setup wizard</button>
+    <button data-tab="modem">Modem &amp; Cloud</button>
+    <button data-tab="settings">Settings</button>
+    <button data-tab="cal">Calibration</button>
+    <button data-tab="data">Data</button>
+    <button data-tab="events">Events</button>
+    <button data-tab="terminal">Terminal <span class="badge" id="termBadge">0</span></button>
+    <button data-tab="tools">Tools</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ======================= intro ======================= -->
+  <section id="intro" class="intro">
+    <div class="big">DW</div>
+    <h1 style="font-size:22px;margin:0 0 8px">Connect to a water level recorder</h1>
+    <p class="muted">Configure, calibrate, test the 4G link and download data over Bluetooth.</p>
+    <ol>
+      <li>Power the device and stand within a few metres of it.</li>
+      <li>Press <b>Connect</b> and pick <b>DWLR-xxxxxx</b>.</li>
+      <li>Enter the 6-digit PIN the device display shows after you connect.</li>
+    </ol>
+    <p class="muted" style="font-size:13px">Works in Chrome or Edge on Android, Windows, macOS and ChromeOS (Web Bluetooth). Open from a local file or an https address.</p>
+    <p id="noBle" class="bad hidden">This browser does not support Web Bluetooth. Use Chrome or Edge.</p>
+  </section>
+
+  <!-- ======================= overview ======================= -->
+  <section id="tab-overview" class="tab hidden">
+    <div class="page-title"><h1>Overview</h1></div>
+    <div class="card setup-banner hidden" id="ovSetup">
+      <div style="flex:1"><b>This logger is not set up yet.</b><div class="muted">The sensor depth is not configured, so no water level is calculated or sent.</div></div>
+      <button class="btn primary" id="btnOvSetup">Start setup wizard</button>
+    </div>
+    <div class="card">
+      <div class="kpis">
+        <div class="kpi"><div class="l">Depth to water</div><div class="v" id="kDtw">–</div><div class="s muted">m below ground</div></div>
+        <div class="kpi"><div class="l">Water column</div><div class="v" id="kWc">–</div><div class="s muted">m above sensor</div></div>
+        <div class="kpi"><div class="l">Loop current</div><div class="v" id="kMa">–</div><div class="s muted">mA (4–20)</div></div>
+        <div class="kpi"><div class="l">Sensor</div><div class="v" id="kState" style="font-size:19px">–</div><div class="s muted" id="kFlags"></div></div>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="card"><h2>Network</h2><div class="kv" id="ovNet"></div></div>
+      <div class="card"><h2>Cloud</h2><div class="kv" id="ovCloud"></div></div>
+      <div class="card"><h2>Storage &amp; time</h2><div class="kv" id="ovLog"></div></div>
+      <div class="card"><h2>Alarms &amp; device</h2><div id="ovAlarms"></div><div class="kv" id="ovDev" style="margin-top:12px"></div></div>
+    </div>
+  </section>
+
+  <!-- ======================= modem ======================= -->
+  <section id="tab-modem" class="tab hidden">
+    <div class="page-title"><h1>Modem &amp; Cloud</h1></div>
+
+    <div class="card">
+      <h2>Connection</h2>
+      <div class="progress-states" id="netStates"></div>
+      <p id="netProgress" style="margin:10px 0 0"></p>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="btnReconnect">Reconnect network</button>
+        <button class="btn" id="btnModemReset">Reset modem</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Signal quality <span class="muted" id="sigAge"></span></h2>
+      <div class="kpis">
+        <div class="kpi"><div class="l">CSQ / RSSI dBm</div><div class="v" id="qCsq">–</div><div class="s"><span class="pill muted" id="rCsq">–</span></div></div>
+        <div class="kpi"><div class="l">RSRP</div><div class="v" id="qRsrp">–</div><div class="s"><span class="pill muted" id="rRsrp">–</span></div></div>
+        <div class="kpi"><div class="l">RSRQ</div><div class="v" id="qRsrq">–</div><div class="s"><span class="pill muted" id="rRsrq">–</span></div></div>
+        <div class="kpi"><div class="l">SINR</div><div class="v" id="qSinr">–</div><div class="s"><span class="pill muted" id="rSinr">–</span></div></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="btnModemRefresh">Read modem now</button>
+        <label class="check"><input type="checkbox" id="liveSig"> Live site survey (every 15 s)</label>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><h2>Registration &amp; cell</h2><div class="kv" id="regKv"></div></div>
+      <div class="card"><h2>SIM &amp; modem</h2><div class="kv" id="simKv"></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Cloud connectivity test</h2>
+      <p class="muted" style="margin-top:0">Network → MQTT session → new reading → test message acknowledged by the server → reading delivered.</p>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="testMeasure" checked> take a new reading</label>
+        <button class="btn primary" id="btnCloudTest">Run test</button>
+        <span id="testResult"></span>
+      </div>
+      <ul class="steps" id="testSteps" style="margin-top:12px"></ul>
+      <div class="kv" id="cloudKv" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <h2>SMS test</h2>
+      <div class="row">
+        <input type="text" id="smsTo" placeholder="+91XXXXXXXXXX" style="max-width:220px">
+        <button class="btn" id="btnSms">Send test SMS</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= setup wizard ======================= -->
+  <section id="tab-setup" class="tab hidden">
+    <div class="page-title"><h1>Installation setup</h1></div>
+    <div class="wz">
+      <ol class="wz-steps" id="wzSteps"></ol>
+      <div class="card">
+        <div class="wz-head"><h2 id="wzTitle">Setup</h2><progress id="wzBar" max="100" value="0"></progress></div>
+        <div id="wzBody"></div>
+        <div class="wz-foot">
+          <button class="btn" id="wzBack">Back</button>
+          <div class="spacer"></div>
+          <button class="btn hidden" id="wzSkip">Skip</button>
+          <button class="btn primary" id="wzNext">Save &amp; continue</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= settings ======================= -->
+  <section id="tab-settings" class="tab hidden">
+    <div class="page-title"><h1>Settings</h1><button class="btn small" id="btnReload">Reload from device</button></div>
+    <div id="settingsForm"></div>
+    <div class="savebar">
+      <span id="saveMsg" class="muted">No changes</span>
+      <div class="spacer"></div>
+      <button class="btn" id="btnDiscard">Discard</button>
+      <button class="btn primary" id="btnSave" disabled>Save changes</button>
+    </div>
+  </section>
+
+  <!-- ======================= calibration ======================= -->
+  <section id="tab-cal" class="tab hidden">
+    <div class="page-title"><h1>Calibration</h1></div>
+    <div class="grid">
+      <div class="card">
+        <h2>Live input</h2>
+        <div class="kv" id="calKv"></div>
+      </div>
+      <div class="card">
+        <h2>Saved calibration <span class="muted" id="calSavedState"></span></h2>
+        <div id="calSaved" class="muted">Loading…</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Two-point calibration <span class="muted">connect a loop calibrator in place of the sensor</span></h2>
+      <ul class="steps">
+        <li><span class="mark run">1</span><b>Low point</b><div class="row">Set calibrator to <input type="number" id="calMa1" step="0.001" value="4.000" style="width:100px"> mA, wait 5 s, then <button class="btn" id="btnCap1">Capture</button> <span id="cap1" class="ok"></span></div></li>
+        <li><span class="mark run">2</span><b>High point</b><div class="row">Set calibrator to <input type="number" id="calMa2" step="0.001" value="20.000" style="width:100px"> mA, then <button class="btn" id="btnCap2">Capture</button> <span id="cap2" class="ok"></span></div></li>
+        <li><span class="mark run">3</span><b>Save</b><div class="row"><button class="btn primary" id="btnCommit">Save calibration</button><button class="btn danger" id="btnCalReset">Clear calibration</button></div></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Field level correction</h2>
+      <p class="muted" style="margin-top:0">Measure depth to water with a dip meter and enter it. The device takes a reading and adjusts its level offset to match.</p>
+      <div class="row"><input type="number" id="manualDtw" step="0.01" placeholder="m below ground" style="max-width:180px"><button class="btn primary" id="btnLevelSet">Apply</button><span id="levelMsg" class="muted"></span></div>
+    </div>
+  </section>
+
+  <!-- ======================= data ======================= -->
+  <section id="tab-data" class="tab hidden">
+    <div class="page-title"><h1>Data</h1></div>
+    <div class="card">
+      <h2>Logged readings</h2>
+      <div class="kv" id="dataKv"></div>
+      <div class="row" style="margin-top:14px">
+        <label>From <input type="date" id="dFrom" style="width:auto"></label>
+        <label>To <input type="date" id="dTo" style="width:auto"></label>
+        <button class="btn primary" id="btnDownload">Download CSV</button>
+        <button class="btn" id="btnRecent">Show latest 40</button>
+      </div>
+      <p id="dlStatus" class="muted"></p>
+      <div class="tablewrap"><table id="dataTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ======================= events ======================= -->
+  <section id="tab-events" class="tab hidden">
+    <div class="page-title"><h1>Event log</h1><button class="btn small" id="btnEvents">Refresh</button><button class="btn small" id="btnEventsOlder">Load older</button></div>
+    <div class="card"><div class="tablewrap"><table id="evTable"></table></div></div>
+  </section>
+
+  <!-- ======================= terminal ======================= -->
+  <section id="tab-terminal" class="tab hidden">
+    <div class="page-title"><h1>BLE terminal</h1><span class="muted">every message sent (→) and received (←); click a line to expand</span></div>
+    <div class="card">
+      <div class="termbar">
+        <input type="text" id="termFilter" placeholder="Filter, e.g. modem or error">
+        <label class="check"><input type="checkbox" id="termHidePoll" checked> hide polling</label>
+        <label class="check"><input type="checkbox" id="termFollow" checked> follow</label>
+        <button class="btn small" id="termCopy">Copy</button>
+        <button class="btn small" id="termSave">Download</button>
+        <button class="btn small" id="termClear">Clear</button>
+      </div>
+      <div class="term" id="term"><div class="empty">No traffic yet.</div></div>
+      <div class="cmdline">
+        <input type="text" id="termInput" placeholder='status  ·  set log_min=15  ·  at at=AT+CSQ  ·  {"cmd":"net"}' autocomplete="off" spellcheck="false">
+        <button class="btn primary" id="termSend">Send</button>
+      </div>
+      <div class="chips" id="termChips"></div>
+    </div>
+  </section>
+
+  <!-- ======================= tools ======================= -->
+  <section id="tab-tools" class="tab hidden">
+    <div class="page-title"><h1>Tools</h1></div>
+    <div class="card">
+      <h2>Firmware update over Bluetooth <span class="muted">local, no cloud or internet needed</span></h2>
+      <p class="muted" style="margin-top:0">Install a new firmware file from this phone or laptop. Settings, calibration and logged data are kept.
+        Measuring continues during the transfer. If the new firmware does not run properly for 2 minutes after the restart, the device
+        returns to the current firmware by itself.</p>
+      <div class="row">
+        <input type="file" id="otaFile" accept=".bin" style="max-width:320px">
+        <button class="btn primary" id="btnOtaGo" disabled>Install</button>
+        <button class="btn hidden" id="btnOtaCancel">Cancel</button>
+        <span id="otaSel" class="muted"></span>
+      </div>
+      <div id="otaRun" class="hidden" style="margin-top:12px">
+        <progress id="otaBar" max="100" value="0" style="width:100%"></progress>
+        <div class="row" style="justify-content:space-between"><span id="otaMsg" class="muted"></span><span id="otaEta" class="muted mono"></span></div>
+      </div>
+      <p class="muted small" style="margin-bottom:0">Use the application file <span class="mono">dwlr_fw.bin</span> (not merged-binary.bin).
+        Keep the phone within a few metres and the screen on; it takes about 3–5 minutes.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h2>Device actions</h2>
+        <div class="row">
+          <button class="btn primary" id="btnMeasure">Measure now</button>
+          <button class="btn" id="btnTime">Set clock from this device</button>
+          <button class="btn" id="btnDiag">Diagnostics</button>
+          <button class="btn" id="btnReboot">Reboot</button>
+        </div>
+        <pre class="json hidden" id="toolOut" style="margin-top:12px"></pre>
+      </div>
+      <div class="card">
+        <h2>Modem AT command <span class="muted">needs Engineering mode</span></h2>
+        <div class="row"><input type="text" id="atCmd" placeholder="AT+CPSI?" class="mono" style="flex:1;min-width:160px"><button class="btn" id="btnAt">Send</button></div>
+        <pre class="json hidden" id="atOut" style="margin-top:12px"></pre>
+      </div>
+      <div class="card">
+        <h2>Factory reset</h2>
+        <p class="muted" style="margin-top:0">Restores all settings and clears calibration. Logged data is kept unless you tick the box.</p>
+        <div class="row"><label class="check"><input type="checkbox" id="eraseData"> also erase logged data</label><button class="btn danger" id="btnFactory">Factory reset</button></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- PIN dialog -->
+<dialog id="pinDlg">
+  <form method="dialog">
+    <div class="dbody">
+      <h3>Enter device PIN</h3>
+      <p class="muted" style="margin:0 0 12px">The device display now shows <b>BLE PIN</b> for 60 seconds.</p>
+      <input type="text" id="pinInput" class="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="12">
+      <p class="bad" id="pinErr" style="min-height:1.2em;margin:8px 0 0"></p>
+      <label class="check" style="margin-top:4px"><input type="checkbox" id="pinRemember"> remember on this device</label>
+    </div>
+    <div class="dfoot"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Unlock</button></div>
+  </form>
+</dialog>
+
+<!-- Confirm dialog -->
+<dialog id="confirmDlg">
+  <form method="dialog">
+    <div class="dbody"><h3 id="cfTitle">Confirm</h3><p class="muted" id="cfText" style="margin:0"></p></div>
+    <div class="dfoot"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="ok" id="cfOk">Continue</button></div>
+  </form>
+</dialog>
+
+<div id="toasts"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+ * Transport: Nordic UART Service, newline-delimited JSON
+ * ===================================================================== */
+const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';   // app -> device (write)
+const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';   // device -> app (notify)
+const POLL_CMDS = new Set(['status', 'live', 'net', 'cal_get']);
+const $ = (id) => document.getElementById(id);
+const enc = new TextEncoder(), dec = new TextDecoder();
+
+const ble = { dev: null, rx: null, buf: '', nextId: 1, pending: new Map(), queue: Promise.resolve(), authed: false, info: null };
+let currentTab = '';
+
+function store(key, val) {
+  try {
+    if (val === undefined) return localStorage.getItem(key);
+    if (val === null) localStorage.removeItem(key); else localStorage.setItem(key, val);
+  } catch { /* storage blocked */ }
+  return null;
+}
+
+function onNotify(ev) {
+  ble.buf += dec.decode(ev.target.value);
+  let i;
+  while ((i = ble.buf.indexOf('\n')) >= 0) {
+    const line = ble.buf.slice(0, i).trim();
+    ble.buf = ble.buf.slice(i + 1);
+    if (!line) continue;
+    let msg = null;
+    try { msg = JSON.parse(line); } catch { /* not JSON */ }
+    if (!(msg && msg.cmd === 'ota_chunk' && msg.ok)) term.add(msg && msg.ok === false ? 'err' : 'rx', line, msg ? msg.cmd : null);
+    if (!msg) continue;
+    const p = ble.pending.get(msg.id);
+    if (p) { ble.pending.delete(msg.id); clearTimeout(p.timer); p.resolve(msg); }
+  }
+}
+
+async function writeLine(text, fast = false) {
+  const bytes = enc.encode(text + '\n');
+  if (fast && ble.rx.writeValueWithoutResponse) {
+    /* Bulk data (firmware chunks): no per-packet acknowledgement; the reply confirms the whole line. */
+    for (let o = 0; o < bytes.length; o += 240) await ble.rx.writeValueWithoutResponse(bytes.slice(o, o + 240));
+    return;
+  }
+  for (let o = 0; o < bytes.length; o += 180) await ble.rx.writeValueWithResponse(bytes.slice(o, o + 180));
+}
+
+/* One request at a time; every request and reply is shown in the terminal. */
+function call(cmd, args = {}, timeoutMs = 15000, opts = {}) {
+  const run = async () => {
+    if (!ble.rx) throw new Error('Not connected');
+    const id = ble.nextId++;
+    const p = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { ble.pending.delete(id); reject(new Error(`${cmd}: no reply in ${Math.round(timeoutMs / 1000)} s`)); }, timeoutMs);
+      ble.pending.set(id, { resolve, timer });
+    });
+    const line = JSON.stringify(Object.assign({ id, cmd }, args));
+    if (!opts.bulk) term.add('tx', line, cmd);
+    await writeLine(line, !!opts.bulk);
+    const r = await p;
+    if (!r.ok) throw new Error(r.err || `${cmd} failed`);
+    return r.data || {};
+  };
+  const res = ble.queue.then(run, run);
+  ble.queue = res.catch(() => {});
+  return res;
+}
+
+/* =====================================================================
+ * UI helpers
+ * ===================================================================== */
+function toast(msg, kind = '', ms = 3500) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + kind; t.textContent = msg;
+  $('toasts').append(t);
+  setTimeout(() => t.remove(), ms);
+}
+async function busy(btn, fn) {
+  if (btn.disabled) return undefined;
+  const html = btn.innerHTML; btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>' + html;
+  try { return await fn(); } finally { btn.disabled = false; btn.innerHTML = html; }
+}
+function confirmBox(title, text, okLabel = 'Continue', danger = false) {
+  return new Promise((resolve) => {
+    $('cfTitle').textContent = title; $('cfText').textContent = text;
+    $('cfOk').textContent = okLabel; $('cfOk').className = 'btn ' + (danger ? 'danger' : 'primary');
+    const d = $('confirmDlg');
+    d.returnValue = '';
+    d.onclose = () => resolve(d.returnValue === 'ok');
+    d.showModal();
+  });
+}
+const fmt = (v, d = 2, u = '') => (v === null || v === undefined || Number.isNaN(Number(v)) ? '–' : Number(v).toFixed(d) + u);
+function ago(s) {
+  if (s === undefined || s === null || s < 0) return 'never';
+  if (s < 90) return Math.round(s) + ' s ago';
+  if (s < 5400) return Math.round(s / 60) + ' min ago';
+  return Math.round(s / 3600) + ' h ago';
+}
+function kv(el, pairs) {
+  el.innerHTML = '';
+  for (const [k, v, cls] of pairs) {
+    const a = document.createElement('div'); a.textContent = k;
+    const b = document.createElement('div'); b.textContent = (v === undefined || v === null || v === '') ? '–' : v;
+    if (cls) b.className = cls;
+    el.append(a, b);
+  }
+}
+function setConn(state, text) { $('conn').className = 'conn ' + state; $('connText').textContent = text; }
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function highlight(s) {
+  return esc(s).replace(/(&quot;(?:\\.|(?!&quot;).)*?&quot;)(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)/g,
+    (m, str, colon, lit, num) => str ? (colon ? `<span class="k">${str}</span>${colon}` : `<span class="s">${str}</span>`)
+      : lit ? `<span class="b">${lit}</span>` : `<span class="n">${num}</span>`);
+}
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+/* =====================================================================
+ * Terminal
+ * ===================================================================== */
+const term = {
+  lines: [], max: 2000, unseen: 0,
+  add(dir, text, cmd = null) {
+    const e = { t: new Date(), dir, text, cmd };
+    this.lines.push(e);
+    if (this.lines.length > this.max) this.lines.shift();
+    if (currentTab !== 'terminal' && !(cmd && POLL_CMDS.has(cmd))) { this.unseen++; $('termBadge').textContent = this.unseen; }
+    if (this.visible(e)) this.render(e);
+  },
+  visible(e) {
+    if ($('termHidePoll').checked && e.cmd && POLL_CMDS.has(e.cmd)) return false;
+    const f = $('termFilter').value.trim().toLowerCase();
+    return !f || e.text.toLowerCase().includes(f);
+  },
+  render(e) {
+    const el = $('term');
+    const empty = el.querySelector('.empty');
+    if (empty) empty.remove();
+    const ln = document.createElement('div'); ln.className = 'ln';
+    const ts = e.t.toTimeString().slice(0, 8) + '.' + String(e.t.getMilliseconds()).padStart(3, '0');
+    const arrow = { tx: '→', rx: '←', info: '•', err: '!' }[e.dir];
+    ln.innerHTML = `<span class="t">${ts}</span><span class="d ${e.dir}">${arrow}</span><span class="m clip"></span>`;
+    const m = ln.lastChild;
+    m.innerHTML = highlight(e.text);
+    m.onclick = () => {
+      if (m.classList.toggle('clip')) m.innerHTML = highlight(e.text);
+      else { try { m.innerHTML = highlight(JSON.stringify(JSON.parse(e.text), null, 2)); } catch { /* plain text */ } }
+    };
+    el.append(ln);
+    while (el.childElementCount > this.max) el.firstChild.remove();
+    if ($('termFollow').checked) el.scrollTop = el.scrollHeight;
+  },
+  redraw() {
+    const el = $('term'); el.innerHTML = '';
+    const shown = this.lines.filter((e) => this.visible(e));
+    if (!shown.length) el.innerHTML = '<div class="empty">No matching traffic.</div>';
+    shown.forEach((e) => this.render(e));
+  },
+  text() { return this.lines.map((e) => `${e.t.toISOString()} ${e.dir.toUpperCase().padEnd(4)} ${e.text}`).join('\n'); },
+};
+$('termFilter').oninput = () => term.redraw();
+$('termHidePoll').onchange = () => term.redraw();
+$('termClear').onclick = () => { term.lines = []; term.redraw(); };
+$('termCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText(term.text()); toast('Log copied', 'ok'); } catch { toast('The browser blocked clipboard access', 'bad'); }
+};
+$('termSave').onclick = () => download(`dwlr-ble-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`, term.text(), 'text/plain');
+
+/* Short form like the serial console ("set a=1 b=x", "cmd k=v") or raw JSON. */
+function parseCommand(text) {
+  text = text.trim();
+  if (!text) return null;
+  if (text.startsWith('{')) return JSON.parse(text);
+  const [word, ...rest] = text.split(/\s+/);
+  const val = (v) => (v === 'true' ? true : v === 'false' ? false : v !== '' && !isNaN(v) ? Number(v) : v.replace(/^"|"$/g, ''));
+  const pairs = Object.fromEntries(rest.filter((p) => p.includes('=')).map((p) => { const i = p.indexOf('='); return [p.slice(0, i), val(p.slice(i + 1))]; }));
+  if (word === 'set') return { cmd: 'cfg_set', settings: pairs };
+  if (word === 'get') return { cmd: 'cfg_get' };
+  return Object.assign({ cmd: word }, pairs);
+}
+const hist = { list: (() => { try { return JSON.parse(store('dwlr.hist') || '[]'); } catch { return []; } })(), pos: -1 };
+async function sendTerm() {
+  const input = $('termInput');
+  const text = input.value;
+  let obj;
+  try { obj = parseCommand(text); } catch (e) { term.add('err', 'Invalid JSON: ' + e.message); return; }
+  if (!obj || !obj.cmd) return;
+  hist.list = [text, ...hist.list.filter((h) => h !== text)].slice(0, 30);
+  hist.pos = -1; store('dwlr.hist', JSON.stringify(hist.list));
+  input.value = '';
+  const { cmd, ...args } = obj;
+  delete args.id;
+  /* Device errors already appear as a red "←" line; only add local failures (timeout, not connected). */
+  try { await call(cmd, args, 180000); } catch (e) { if (/no reply|Not connected/.test(e.message)) term.add('err', e.message); }
+}
+$('termSend').onclick = sendTerm;
+$('termInput').onkeydown = (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); sendTerm(); }
+  else if (e.key === 'ArrowUp' && hist.list.length) { hist.pos = Math.min(hist.pos + 1, hist.list.length - 1); e.target.value = hist.list[hist.pos]; e.preventDefault(); }
+  else if (e.key === 'ArrowDown') { hist.pos = Math.max(hist.pos - 1, -1); e.target.value = hist.pos < 0 ? '' : hist.list[hist.pos]; e.preventDefault(); }
+};
+for (const c of ['status', 'modem_info', 'net', 'cloud_test', 'reconnect', 'diag', 'log_info', 'ev_read n=10', 'time', 'help']) {
+  const b = document.createElement('button'); b.textContent = c;
+  b.onclick = () => { $('termInput').value = c; sendTerm(); };
+  $('termChips').append(b);
+}
+
+/* =====================================================================
+ * Connection
+ * ===================================================================== */
+async function connect() {
+  if (!navigator.bluetooth) { $('noBle').classList.remove('hidden'); toast('Web Bluetooth is not available in this browser', 'bad'); return; }
+  try {
+    setConn('busy', 'Searching…');
+    ble.dev = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'DWLR-' }], optionalServices: [NUS] });
+    ble.dev.addEventListener('gattserverdisconnected', onDisconnected);
+    setConn('busy', 'Connecting…');
+    term.add('info', `Connecting to ${ble.dev.name}`);
+    const server = await ble.dev.gatt.connect();
+    const svc = await server.getPrimaryService(NUS);
+    ble.rx = await svc.getCharacteristic(NUS_RX);
+    const tx = await svc.getCharacteristic(NUS_TX);
+    await tx.startNotifications();
+    tx.addEventListener('characteristicvaluechanged', onNotify);
+    ble.info = await call('hello');
+    $('devName').textContent = `${ble.dev.name} · FW ${ble.info.fw}`;
+    $('chipMac').textContent = `MAC ${ble.info.id}`;
+    term.add('info', `Connected to device ${ble.info.id}, firmware ${ble.info.fw}`);
+    setConn('busy', 'Waiting for PIN');
+    if (!(await authenticate())) { ble.dev.gatt.disconnect(); return; }
+    ble.authed = true;
+    setConn('on', 'Connected');
+    $('btnConnect').textContent = 'Disconnect';
+    $('intro').classList.add('hidden');
+    $('tabs').classList.remove('hidden'); $('strip').classList.remove('hidden');
+    showTab('overview');
+    startStatusPolling();
+  } catch (e) {
+    setConn('', 'Disconnected');
+    if (e.name !== 'NotFoundError') { toast(e.message, 'bad'); term.add('err', e.message); }
+  }
+}
+
+async function authenticate() {
+  const key = 'dwlr.pin.' + ble.info.id;
+  const saved = store(key);
+  if (saved) {
+    try { await call('auth', { pin: saved }); term.add('info', 'Unlocked with the remembered PIN'); return true; }
+    catch { store(key, null); }
+  }
+  const dlg = $('pinDlg');
+  $('pinErr').textContent = ''; $('pinInput').value = '';
+  for (;;) {
+    dlg.returnValue = '';
+    dlg.showModal(); $('pinInput').focus();
+    const result = await new Promise((r) => { dlg.onclose = () => r(dlg.returnValue); });
+    if (result !== 'ok') return false;
+    const pin = $('pinInput').value.trim();
+    if (!pin) { $('pinErr').textContent = 'Enter the PIN shown on the display'; continue; }
+    try {
+      await call('auth', { pin });
+      if ($('pinRemember').checked) store(key, pin);
+      return true;
+    } catch (e) { $('pinErr').textContent = e.message; }
+  }
+}
+
+function onDisconnected() {
+  ble.rx = null; ble.authed = false;
+  stopStatusPolling(); stopTabTimer(); clearInterval(followTimer);
+  for (const p of ble.pending.values()) clearTimeout(p.timer);
+  ble.pending.clear();
+  setConn('', 'Disconnected');
+  term.add('info', 'Disconnected');
+  $('btnConnect').textContent = 'Connect';
+  $('tabs').classList.add('hidden'); $('strip').classList.add('hidden');
+  document.querySelectorAll('.tab').forEach((t) => t.classList.add('hidden'));
+  $('intro').classList.remove('hidden');
+  toast('Device disconnected', 'warn');
+}
+$('btnConnect').onclick = () => (ble.rx && ble.dev ? ble.dev.gatt.disconnect() : connect());
+$('chipMac').onclick = async () => {
+  if (!ble.info) return;
+  try { await navigator.clipboard.writeText(ble.info.id); toast(`MAC ID ${ble.info.id} copied`, 'ok'); }
+  catch { toast(`MAC ID ${ble.info.id}`, ''); }
+};
+if (!navigator.bluetooth) $('noBle').classList.remove('hidden');
+
+/* =====================================================================
+ * Tabs
+ * ===================================================================== */
+let tabTimer = null;
+function stopTabTimer() { clearInterval(tabTimer); tabTimer = null; }
+function showTab(name) {
+  currentTab = name;
+  document.querySelectorAll('nav.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('hidden', t.id !== 'tab-' + name));
+  stopTabTimer();
+  if (name === 'overview' && lastStatus) renderOverview(lastStatus);
+  if (name === 'modem') { loadModem(false); tabTimer = setInterval(() => loadModem($('liveSig').checked), 15000); }
+  if (name === 'settings') loadSettings();
+  if (name === 'setup') wzStart();
+  if (name === 'cal') { loadCal(); tabTimer = setInterval(loadCal, 3000); }
+  if (name === 'data') loadDataInfo();
+  if (name === 'events') { evOldest = null; loadEvents(false); }
+  if (name === 'terminal') { term.unseen = 0; $('termBadge').textContent = '0'; const el = $('term'); el.scrollTop = el.scrollHeight; $('termInput').focus(); }
+}
+document.querySelectorAll('nav.tabs button').forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
+
+/* =====================================================================
+ * Status (strip + overview), every 4 s
+ * ===================================================================== */
+let statusTimer = null, lastStatus = null, lastStatusAt = 0;
+const NET_ORDER = ['STARTING', 'SIM_WAIT', 'REGISTERING', 'CONNECTING', 'ONLINE'];
+function startStatusPolling() { refreshStatus(); statusTimer = setInterval(refreshStatus, 4000); }
+function stopStatusPolling() { clearInterval(statusTimer); statusTimer = null; }
+function signalBars(csq) {
+  if (csq === undefined || csq === null || csq === 99) return 0;
+  return csq >= 20 ? 4 : csq >= 15 ? 3 : csq >= 10 ? 2 : csq >= 3 ? 1 : 0;
+}
+async function refreshStatus() {
+  if (!ble.authed) return;
+  try {
+    const s = await call('status');
+    lastStatus = s; lastStatusAt = Date.now();
+    lastLive = s.live || null;
+    if (currentTab === 'settings') updateSensorDiagram();
+    if (currentTab === 'setup') wzLive(s);
+    renderStrip(s);
+    if (currentTab === 'overview') renderOverview(s);
+    if (currentTab === 'modem') renderConnection(s.net || {});
+  } catch { /* visible in the terminal */ }
+}
+setInterval(() => {
+  if (!lastStatusAt || !ble.authed) return;
+  const s = Math.round((Date.now() - lastStatusAt) / 1000);
+  const c = $('chipAge');
+  c.textContent = `updated ${s} s ago`;
+  c.className = 'chip ' + (s > 20 ? 'warn' : '');
+}, 1000);
+
+function renderStrip(s) {
+  const n = s.net || {}, c = s.cloud || {}, al = (s.alarms && s.alarms.active) || [];
+  const online = n.state === 'ONLINE';
+  const chipNet = $('chipNet');
+  chipNet.className = 'chip ' + (online ? 'ok' : n.state === 'BACKOFF' || n.state === 'RECOVERING' ? 'bad' : 'warn');
+  chipNet.textContent = online ? `${n.tech || '4G'} online` : `${(n.state || '–').toLowerCase().replace('_', ' ')}${n.reg && n.reg !== '-' ? ' · ' + n.reg : ''}`;
+  const bars = signalBars(n.csq);
+  const sig = $('chipSig');
+  sig.className = 'chip ' + (bars >= 3 ? 'ok' : bars === 2 ? 'warn' : 'bad');
+  sig.querySelectorAll('i').forEach((i, k) => i.classList.toggle('on', k < bars));
+  sig.lastChild.textContent = n.csq === 99 || n.csq === undefined ? 'no signal' : `CSQ ${n.csq}`;
+  const cc = $('chipCloud');
+  cc.className = 'chip ' + (c.connected ? 'ok' : c.enabled ? 'bad' : '');
+  cc.textContent = c.connected ? 'Cloud connected' : c.enabled ? 'Cloud offline' : 'Cloud disabled';
+  const ca = $('chipAlarm');
+  ca.className = 'chip ' + (al.length ? 'warn' : 'ok');
+  ca.textContent = al.length ? `${al.length} alarm${al.length > 1 ? 's' : ''}` : 'No alarms';
+  ca.title = al.join(', ');
+}
+
+function renderOverview(s) {
+  const l = s.live || {}, n = s.net || {}, c = s.cloud || {}, g = s.log || {}, t = s.time || {}, d = s.device || {};
+  $('kDtw').textContent = fmt(l.dtw, 2);
+  $('kWc').textContent = fmt(l.wc, 2);
+  $('kMa').textContent = fmt(l.ma, 3);
+  const bad = /OPEN|SHORT|FAULT|SATURATED/.test(l.q_txt || '') || l.adc_ok === false;
+  $('ovSetup').classList.toggle('hidden', !/NOT_CONFIGURED/.test(l.q_txt || ''));
+  $('kState').textContent = l.adc_ok === false ? 'ADC fault' : bad ? (l.q_txt || '').split(',')[0].replace(/_/g, ' ') : 'OK';
+  $('kState').className = 'v ' + (bad ? 'bad' : 'ok');
+  $('kFlags').textContent = (l.q_txt || '').replace(/_/g, ' ').toLowerCase();
+  kv($('ovNet'), [['State', n.state, n.state === 'ONLINE' ? 'ok' : 'warn'], ['Registration', n.reg], ['Operator', `${n.oper || '–'} ${n.tech || ''}`],
+    ['Signal', n.csq === 99 || n.csq === undefined ? 'no signal' : `CSQ ${n.csq} (${n.rssi_dbm} dBm)`], ['IP address', n.ip], ['Last error', n.error, n.error ? 'warn' : '']]);
+  kv($('ovCloud'), [['MQTT', c.connected ? 'connected' : c.enabled ? 'not connected' : 'disabled', c.connected ? 'ok' : 'bad'],
+    ['Server', `${c.host || '–'}:${c.port || ''}${c.tls ? ' (TLS)' : ''}`], ['Last upload', ago(c.last_upload_age_s)], ['Records sent', c.records_sent], ['Last error', c.error, c.error ? 'warn' : '']]);
+  kv($('ovLog'), [['Stored readings', `${(g.next || 0) - (g.oldest || 0)} of ${g.capacity || '–'}`], ['Waiting to upload', g.backlog, g.backlog > 5 ? 'warn' : ''],
+    ['Clock', t.valid ? t.local : 'not set', t.valid ? '' : 'bad'], ['Time source', t.source], ['Last reading', s.last ? `${fmt(s.last.dtw, 3, ' m')} · ${fmt(s.last.ma, 3, ' mA')}` : '–']]);
+  const al = (s.alarms && s.alarms.active) || [];
+  $('ovAlarms').innerHTML = al.length ? al.map((a) => `<span class="pill warn" style="margin:0 6px 6px 0">${esc(a.replace(/_/g, ' '))}</span>`).join('') : '<span class="ok">No active alarms</span>';
+  kv($('ovDev'), [['Site', d.site], ['Uptime', d.uptime_s !== undefined ? (d.uptime_s / 3600).toFixed(1) + ' h' : '–'], ['Reset reason', d.reset_reason],
+    ['Free memory', d.free_heap ? Math.round(d.free_heap / 1024) + ' KB' : '–', d.free_heap && d.free_heap < 20000 ? 'warn' : ''], ['Safe mode', d.safe_mode ? 'YES' : 'no', d.safe_mode ? 'bad' : '']]);
+}
+
+/* =====================================================================
+ * Modem & Cloud
+ * ===================================================================== */
+const R_RSRP = [[-80, 'Excellent', 'ok'], [-90, 'Good', 'ok'], [-100, 'Fair', 'warn'], [-1e9, 'Poor', 'bad']];
+const R_RSRQ = [[-10, 'Excellent', 'ok'], [-15, 'Good', 'ok'], [-20, 'Fair', 'warn'], [-1e9, 'Poor', 'bad']];
+const R_SINR = [[20, 'Excellent', 'ok'], [13, 'Good', 'ok'], [0, 'Fair', 'warn'], [-1e9, 'Poor', 'bad']];
+const R_CSQ = [[20, 'Excellent', 'ok'], [15, 'Good', 'ok'], [10, 'Fair', 'warn'], [0, 'Poor', 'bad']];
+const MODES = { 2: 'Automatic', 13: 'GSM only', 38: 'LTE only', 14: 'WCDMA only' };
+function rate(v, steps) {
+  if (v === null || v === undefined || Number.isNaN(Number(v))) return ['unknown', 'muted'];
+  for (const [t, l, c] of steps) if (v >= t) return [l, c];
+  return ['unknown', 'muted'];
+}
+function setRating(id, r) { const e = $(id); e.textContent = r[0]; e.className = 'pill ' + r[1]; }
+
+function renderConnection(n) {
+  const idx = NET_ORDER.indexOf(n.state);
+  const online = n.state === 'ONLINE';
+  $('netStates').innerHTML = NET_ORDER.map((s, i) => {
+    const cls = online || i < idx ? 'done' : i === idx ? 'now' : '';
+    return `<span class="${cls}">${s.replace('_', ' ').toLowerCase()}</span>`;
+  }).join('') + (idx < 0 && n.state ? `<span class="now">${esc(n.state.toLowerCase())}</span>` : '');
+  let msg;
+  if (online) msg = `Online for ${n.online_s ? Math.max(1, Math.round(n.online_s / 60)) + ' min' : 'a moment'} · ${n.tech || ''} · IP ${n.ip || '–'}`;
+  else if (n.state === 'REGISTERING') msg = `Searching for the network (${n.reg}) for ${n.reg_search_s} s`;
+  else if (n.state === 'BACKOFF') msg = 'Waiting before the next attempt. Press Reconnect to retry now.';
+  else if (n.state === 'RECOVERING') msg = 'Recovering the modem…';
+  else if (n.state === 'SIM_WAIT') msg = `Checking the SIM (${n.sim_state || '…'})`;
+  else msg = (n.state || '–').toLowerCase();
+  if (n.error && !online) msg += ` — last error: ${n.error}`;
+  const p = $('netProgress');
+  p.textContent = msg; p.className = online ? 'ok' : n.state === 'BACKOFF' ? 'bad' : 'muted';
+}
+
+function renderModem(n) {
+  const csq = n.csq === 99 ? null : n.csq;
+  $('qCsq').textContent = csq === null || csq === undefined ? '–' : `${csq} / ${n.rssi_dbm}`;
+  setRating('rCsq', rate(csq, R_CSQ));
+  $('qRsrp').textContent = fmt(n.rsrp, 0, ' dBm'); setRating('rRsrp', rate(n.rsrp, R_RSRP));
+  $('qRsrq').textContent = fmt(n.rsrq, 1, ' dB'); setRating('rRsrq', rate(n.rsrq, R_RSRQ));
+  $('qSinr').textContent = fmt(n.sinr, 1, ' dB'); setRating('rSinr', rate(n.sinr, R_SINR));
+  $('sigAge').textContent = n.signal_age_s >= 0 ? `measured ${ago(n.signal_age_s)}` : 'not measured yet';
+  renderConnection(n);
+  const registered = n.reg === 'home' || n.reg === 'roaming';
+  kv($('regKv'), [['Registration', `${n.reg}${n.reg_stat >= 0 ? ' (' + n.reg_stat + ')' : ''}`, registered ? 'ok' : 'warn'],
+    ['Radio', n.cfun === 1 ? 'on' : n.cfun < 0 || n.cfun === undefined ? '–' : `OFF (CFUN=${n.cfun})`, n.cfun === 1 || n.cfun < 0 ? '' : 'bad'],
+    ['Network mode', MODES[n.net_mode] || '–'], ['Operator', `${n.oper || '–'} ${n.plmn ? '(' + n.plmn + ')' : ''}`],
+    ['Technology / band', `${n.tech || '–'} ${n.band || ''}`], ['Cell / TAC / PCI', `${n.cell_id || '–'} / ${n.tac || '–'} / ${n.pci || '–'}`],
+    ['EARFCN', n.earfcn || '–'], ['APN', n.apn || '(network default)'], ['IP address', n.ip], ['Data mode', n.cmux ? 'CMUX' : 'plain PPP'],
+    ['Sessions / modem resets', `${n.sessions ?? '–'} / ${n.hw_resets ?? '–'}`], ['Last error', n.error, n.error ? 'warn' : ''],
+    ['Last modem error', n.cme], ['Raw CPSI', n.cpsi]]);
+  kv($('simKv'), [['SIM', n.sim_state, n.sim_ok ? 'ok' : 'bad'], ['ICCID (SIM number)', n.iccid], ['IMSI', n.imsi],
+    ['Phone number', n.msisdn || 'not stored on SIM'], ['IMEI', n.imei], ['Modem', n.model], ['Modem firmware', n.modem_fw]]);
+  const c = n.cloud || (lastStatus && lastStatus.cloud) || {};
+  kv($('cloudKv'), [['MQTT', c.connected ? 'connected' : c.enabled ? 'not connected' : 'disabled', c.connected ? 'ok' : 'bad'],
+    ['Server', `${c.host || '–'}:${c.port || ''}${c.tls ? ' (TLS)' : ''}`], ['Last upload', ago(c.last_upload_age_s)], ['Records sent', c.records_sent], ['Last error', c.error]]);
+}
+async function loadModem(fresh) {
+  try { renderModem(await call(fresh ? 'modem_info' : 'net', {}, fresh ? 90000 : 15000)); }
+  catch (e) { toast(e.message, 'bad'); }
+}
+$('btnModemRefresh').onclick = (e) => busy(e.currentTarget, () => loadModem(true));
+
+/* After a reconnect / reset, follow the connection until it is back online. */
+let followTimer = null;
+function followConnection(seconds) {
+  clearInterval(followTimer);
+  const until = Date.now() + seconds * 1000;
+  let sawDown = false;
+  followTimer = setInterval(async () => {
+    if (!ble.authed || Date.now() > until) { clearInterval(followTimer); return; }
+    try {
+      const n = await call('net');
+      if (currentTab === 'modem') renderConnection(n);
+      if (n.state !== 'ONLINE') sawDown = true;
+      if (n.state === 'ONLINE' && (sawDown || n.online_s < 30)) {
+        clearInterval(followTimer);
+        toast(`Network online (${n.tech}, IP ${n.ip})`, 'ok', 6000);
+        if (currentTab === 'modem') loadModem(false);
+      }
+    } catch { /* keep following */ }
+  }, 3000);
+}
+$('btnReconnect').onclick = (e) => busy(e.currentTarget, async () => {
+  try {
+    const r = await call('reconnect');
+    toast(r.result || 'Reconnect started', 'ok', 5000);
+    term.add('info', `Reconnect requested (was ${r.state_before || '?'}, ${r.reg || ''})`);
+    followConnection(180);
+  } catch (err) { toast(err.message, 'bad'); }
+});
+$('btnModemReset').onclick = async (e) => {
+  const btn = e.currentTarget;
+  if (!(await confirmBox('Reset the modem?', 'The modem is restarted with its RESET line. The network is back in about 30–90 seconds.', 'Reset modem'))) return;
+  busy(btn, async () => {
+    try { const r = await call('modem_reset'); toast(r.result || 'Modem reset started', 'ok', 6000); followConnection(240); }
+    catch (err) { toast(err.message, 'bad'); }
+  });
+};
+
+$('btnCloudTest').onclick = (e) => busy(e.currentTarget, async () => {
+  const list = $('testSteps');
+  list.innerHTML = '<li><span class="mark run">…</span><b>Running</b><span class="muted">this takes up to 2 minutes</span></li>';
+  $('testResult').innerHTML = '';
+  try {
+    const r = await call('cloud_test', { measure: $('testMeasure').checked }, 200000);
+    list.innerHTML = '';
+    for (const s of r.steps) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="mark ${s.ok ? 'ok' : 'bad'}">${s.ok ? '✓' : '✗'}</span><b>${esc(s.step)}</b><span></span>`;
+      li.lastChild.textContent = s.detail;
+      list.append(li);
+    }
+    $('testResult').innerHTML = r.passed ? '<span class="pill ok">PASSED</span>' : '<span class="pill bad">FAILED</span>';
+    toast(r.passed ? 'Cloud test passed: data reaches the server' : 'Cloud test failed: see the steps', r.passed ? 'ok' : 'bad', 6000);
+  } catch (err) { list.innerHTML = ''; $('testResult').innerHTML = `<span class="bad">${esc(err.message)}</span>`; }
+});
+
+$('btnSms').onclick = (e) => {
+  const to = $('smsTo').value.trim();
+  if (!/^\+?\d{8,15}$/.test(to)) { toast('Enter the number with country code, e.g. +919876543210', 'warn'); return; }
+  busy(e.currentTarget, async () => {
+    try { await call('sms_test', { to }, 150000); toast('SMS sent to ' + to, 'ok'); }
+    catch (err) { toast('SMS failed: ' + err.message, 'bad', 6000); }
+  });
+};
+
+/* =====================================================================
+ * Settings (schema driven)
+ * ===================================================================== */
+let schema = [], current = {};
+/* The schema comes in pages so no single BLE reply gets large. */
+async function loadSchema() {
+  const all = [];
+  let offset = 0;
+  for (let guard = 0; guard < 20; guard++) {
+    const r = await call('cfg_schema', { offset, n: 12 });
+    all.push(...(r.schema || []));
+    if (r.next === undefined || r.total === undefined) return all;   /* firmware without paging */
+    if (r.next >= r.total || r.next <= offset) break;
+    offset = r.next;
+  }
+  return all;
+}
+async function loadSettings() {
+  try {
+    $('saveMsg').textContent = 'Loading settings…'; $('saveMsg').className = 'muted';
+    if (!schema.length) schema = await loadSchema();
+    current = await call('cfg_get');
+    renderSettings();
+  } catch (e) {
+    $('saveMsg').textContent = 'Could not load settings: ' + e.message; $('saveMsg').className = 'bad';
+    toast('Could not load settings: ' + e.message, 'bad', 6000);
+  }
+}
+function readValue(input) {
+  const t = input.dataset.type;
+  if (t === 'bool') return input.value === 'true';
+  if (t === 'int' || t === 'float') return input.value === '' ? NaN : Number(input.value);
+  return input.value;
+}
+function changedSettings() {
+  const out = {};
+  document.querySelectorAll('#settingsForm [data-key]').forEach((i) => {
+    const v = readValue(i);
+    if (String(v) !== String(current[i.dataset.key])) out[i.dataset.key] = v;
+  });
+  return out;
+}
+function updateSaveBar() {
+  const n = Object.keys(changedSettings()).length;
+  const invalid = document.querySelectorAll('#settingsForm .field.invalid').length;
+  $('saveMsg').textContent = invalid ? `${invalid} value(s) out of range` : n ? `${n} unsaved change${n > 1 ? 's' : ''}` : 'No changes';
+  $('saveMsg').className = invalid ? 'bad' : n ? '' : 'muted';
+  $('btnSave').disabled = !n || invalid > 0;
+}
+/* ---------- help texts: [title, explanation, example] ---------- */
+const HELP = {
+  log_min: ['Logging interval', 'How often a water-level reading is stored and sent. Readings are taken on clock boundaries (15 min → :00, :15, :30, :45).', 'Groundwater monitoring: 15–60 min. Pumping tests: 1–5 min.'],
+  hb_min: ['Heartbeat interval', 'How often the device sends its health (signal, battery/heap, alarms, uptime) to the cloud, independent of readings.', 'Usually the same as the logging interval.'],
+  avg_s: ['Averaging period', 'For every reading the 4–20 mA input is sampled for this many seconds and averaged. Longer averaging removes ripple from long cables and pumps.', '10 s is good for most wells; use 20–30 s near running pumps.'],
+  trim_pct: ['Outlier trim', 'Before averaging, this percentage of the highest and lowest samples is discarded, so short spikes do not affect the reading.', '20 % (default).'],
+  noise_ua: ['Noise threshold', 'If the samples within one reading scatter more than this (standard deviation), the reading is flagged NOISY. 1 mA ≈ 1/16 of the sensor range.', '50 µA (default).'],
+  roc_m: ['Rate-of-change limit', 'If the water level changes more than this between two readings, the reading is flagged RATE_OF_CHANGE (possible sensor fault, or a pump started).', '5 m (default). Lower it for shallow, slow wells.'],
+  afe_shunt: ['Shunt resistor', 'The resistor on the board that converts the loop current to a voltage. Must match the board: old boards 249 Ω, new boards (24 V boost) 100 Ω. A wrong value gives a wrong level.', 'Check the resistor marking near the sensor connector.'],
+  afe_div: ['Divider fitted', 'Whether the 10k/2.2k voltage divider is fitted in front of the ADC on this board.', 'Leave as delivered unless hardware was modified.'],
+  afe_rtop: ['Divider top resistor', 'Value of the upper divider resistor. Only change it if the board was modified.', '10 000 Ω.'],
+  afe_rbot: ['Divider bottom resistor', 'Value of the lower divider resistor. Only change it if the board was modified.', '2 200 Ω.'],
+  rng_lo: ['Sensor range at 4 mA', 'The pressure (as metres of water) the sensor reports at 4 mA. For almost all level sensors this is 0. If the label shows bar, psi or kPa, use the converter below.', 'Label "0–10 m, 4–20 mA" → 0.'],
+  rng_hi: ['Sensor range at 20 mA', 'The pressure (as metres of water) at 20 mA, the full scale on the sensor label. Choose a sensor whose range is larger than the deepest water column it will see.', 'Label "0–10 bar" → 101.97 m (use the converter below).'],
+  zero_ua: ['Sensor zero offset', 'The sensor’s own error at zero pressure, captured with the sensor hanging in air before it is lowered (Setup wizard or command zero_set). A vented sensor should give exactly 4.000 mA in air; the difference is removed from every reading. Kept separate from the field level offset.', 'Typical: −80 … +80 µA (a few cm). The device refuses values above ±320 µA: then the sensor was in water, is not vented, or is faulty.'],
+  lat: ['Latitude', 'Site position in decimal degrees (north positive). Fill it from the phone GPS in the Setup wizard. Sent to ThingsBoard as the latitude attribute for map widgets.', '15.828126'],
+  lon: ['Longitude', 'Site position in decimal degrees (east positive).', '78.037279'],
+  sg: ['Specific gravity', 'Density of the liquid relative to fresh water. The sensor measures pressure; dividing by SG gives the true water column.', 'Fresh groundwater 1.00. Brackish 1.01–1.03. Sea water 1.025.'],
+  sens_depth: ['B · Sensor depth below measuring point', 'Length of cable from the measuring point (MP, usually the top of the casing) down to the sensor diaphragm. This is the most important value: depth to water is calculated from it. Leave 0 and no level is calculated.', 'Mark the cable at the MP, pull it out once and measure with a tape, or use the cable markings. Example: 45.00 m.'],
+  mp_h: ['A · Measuring point above ground', 'Height of the measuring point (top of casing, where the cable is clamped) above the ground. Negative if the MP is below ground, e.g. in a pit or chamber.', 'Casing sticks out 0.60 m → 0.60. MP in a pit 0.4 m deep → −0.40.'],
+  lvl_ofs: ['Level offset (field correction)', 'A small correction added to the water column so the device matches a manual dip-meter reading. It is calculated for you when you enter the measured water level above; you rarely type it.', 'Usually between −0.2 and +0.2 m. A large value means sensor depth (B) or the range is wrong.'],
+  meas_dtw: ['Measured water level (dip meter)', 'Measure the water level by hand with a dip meter and enter it here. Choose whether you measured from the ground or from the measuring point (top of casing). The page compares it with the live reading and fills in the level offset; press Save to store it.', 'Dip meter shows 21.40 m from the top of casing → enter 21.40, "from MP". Wait until the reading is stable (about 10 min after lowering the sensor).'],
+  rl_en: ['Report reduced level', 'Also report the water level as height above mean sea level (RL = ground elevation − depth to water). Needs the ground level elevation.', 'Enable when the site has a surveyed elevation.'],
+  gl_elev: ['Ground level elevation (MSL)', 'Height of the ground at the well above mean sea level, from a survey, GPS or the project records. Used only for the reduced level.', 'Example: 512.30 m.'],
+  al_hi_en: ['Water-high alarm', 'Raise an alarm when the water comes close to the ground (depth to water at or below the limit).', ''],
+  al_hi: ['Water-high limit', 'Alarm when depth to water is at or below this many metres (water rising towards the surface).', '1.0 m.'],
+  al_lo_en: ['Water-low alarm', 'Raise an alarm when the water drops deep (depth to water at or above the limit), e.g. pump protection.', ''],
+  al_lo: ['Water-low limit', 'Alarm when depth to water is at or above this many metres. Keep it above the sensor depth, otherwise the sensor runs dry first.', ''],
+  al_hyst: ['Alarm hysteresis', 'The level must move back by this much before an alarm clears, so it does not toggle on small ripples.', '0.1 m.'],
+  sms_en: ['Alarm SMS', 'Send an SMS to the numbers below when an alarm starts or clears.', ''],
+  sms_nums: ['SMS numbers', 'Up to 4 numbers with country code, separated by commas.', '+919876543210,+919812345678'],
+  apn: ['APN', 'Access point name of the SIM operator. Leave empty: the device picks it from the operator automatically.', 'Jio: jionet · Airtel: airtelgprs.com · BSNL: bsnlnet'],
+  apn_user: ['APN user', 'Only for private APNs (M2M SIMs). Normally empty.', ''],
+  apn_pass: ['APN password', 'Only for private APNs. *** keeps the stored value.', ''],
+  mdm_cmux: ['CMUX', 'Lets the device read signal strength while online. Needs the modem RX line fix on the board; leave off otherwise.', ''],
+  net_mode: ['Network mode', 'Which radio technologies the modem may use. Automatic is best; force LTE only for testing.', ''],
+  cloud_en: ['Cloud upload', 'Send readings, heartbeats and events to ThingsBoard. Readings are always stored on the device as well.', ''],
+  mq_host: ['ThingsBoard host', 'Server name of the ThingsBoard instance.', 'dashboard.bridgethings.com'],
+  mq_port: ['MQTT port', '1883 for plain MQTT, 8883 when TLS is on.', ''],
+  mq_tls: ['TLS', 'Encrypt the connection to ThingsBoard. The server must accept MQTT over TLS on port 8883.', ''],
+  mq_token: ['Access token', 'ThingsBoard device access token. Empty uses <MAC ID>_ACCTKN, shown in the status bar.', ''],
+  mq_legacy: ['Legacy keys', 'Also send the keys used by the old firmware (level, InstalledDepth, error) so existing dashboards keep working.', ''],
+  site: ['Site name', 'Free text shown in the cloud attributes and on the display, e.g. village / well ID.', 'GW-KRN-014 Kurnool'],
+  tz: ['Timezone', 'POSIX timezone used for the display and for aligning readings to local time.', 'India: IST-5:30'],
+  ntp: ['NTP server', 'Internet time server used once online.', 'pool.ntp.org'],
+  ble_en: ['Bluetooth', 'Turning it off disables this app. It can only be turned back on from the cloud or the console.', ''],
+  ble_pin: ['Bluetooth PIN', 'PIN asked by this app. Empty = default PIN.', ''],
+  bl_tmo_s: ['Display timeout', 'Switch the display backlight off after this many seconds without a button press. 0 = always on.', ''],
+  bl_pct: ['Display brightness', 'Backlight brightness.', ''],
+  lcd_rot: ['Display rotation', 'Rotate the screen to match how the enclosure is mounted.', ''],
+  eng_mode: ['Engineering mode', 'Allows raw AT commands in the terminal. For service engineers only.', ''],
+};
+function helpTip(key) {
+  const h = HELP[key];
+  if (!h) return null;
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'help'; btn.textContent = '?'; btn.setAttribute('aria-label', 'Help: ' + h[0]);
+  btn.onclick = (e) => { e.preventDefault(); btn.focus(); };
+  const tip = document.createElement('div'); tip.className = 'tip'; tip.setAttribute('role', 'tooltip');
+  tip.innerHTML = `<b>${esc(h[0])}</b><p>${esc(h[1])}</p>${h[2] ? `<p class="ex">${esc(h[2])}</p>` : ''}`;
+  return [btn, tip];
+}
+
+/* ---------- sensor installation diagram ---------- */
+const SD = { GY: 150, BOT: 545, CX: 170 };
+const DIM_KEYS = { mp_h: 'A', sens_depth: 'B', rng_lo: 'C', rng_hi: 'C', sg: 'C', lvl_ofs: 'C', zero_ua: 'C', gl_elev: 'D', rl_en: 'D' };
+let lastLive = null;
+let sdSource = null;          /* value getter while the wizard shows the diagram */
+let sdPanelEl = null;         /* one diagram instance, moved between Settings and the wizard */
+function sdNum(key) { return sdSource ? sdSource(key) : formNum(key); }
+function getSensorPanel() {
+  if (!sdPanelEl) {
+    sdPanelEl = sensorPanel();
+    sdPanelEl.querySelectorAll('#sdLegend .row').forEach((r) => {
+      r.onmouseenter = () => hlDim(r.dataset.dim, true);
+      r.onmouseleave = () => hlDim(r.dataset.dim, false);
+    });
+  }
+  return sdPanelEl;
+}
+function sensorPanel() {
+  const { GY, BOT, CX } = SD;
+  const dim = (id, x, cls = '') => `<g class="dim ${cls}" id="dim${id}" data-x="${x}"><line class="l"/><line class="t1"/><line class="t2"/>
+    <circle class="badge" r="9"/><text>${id}</text></g>`;
+  const grass = Array.from({ length: 16 }, (_, i) => i * 22 + 4).filter((x) => x < 140 || x > 200)
+    .map((x) => `<path class="grass" d="M${x} ${GY} l3 -7 M${x + 5} ${GY} l-2 -6"/>`).join('');
+  const el = document.createElement('div');
+  el.innerHTML = `<div class="well">
+  <svg viewBox="0 0 340 560" role="img" aria-label="Borewell with level sensor and the dimensions used to calculate the water level">
+    <defs>
+      <pattern id="sdSoil" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line class="soil-line" x1="0" y1="0" x2="0" y2="12"/></pattern>
+      <linearGradient id="sdWaterGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--water)"/><stop offset="1" stop-color="var(--water-2)"/></linearGradient>
+      <clipPath id="sdClip"><rect id="sdClipRect" x="154" y="0" width="32" height="${BOT}"/></clipPath>
+    </defs>
+    <rect class="sky" x="0" y="0" width="340" height="${GY}"/>
+    <rect class="soil" x="0" y="${GY}" width="340" height="${560 - GY}"/><rect fill="url(#sdSoil)" x="0" y="${GY}" width="340" height="${560 - GY}"/>
+    <rect class="bore" x="146" y="${GY}" width="48" height="${BOT - GY + 8}"/>
+    <g clip-path="url(#sdClip)"><g id="sdWater" class="moving">
+      <rect class="water" x="150" y="0" width="40" height="${BOT}"/>
+      <path class="wave wave-move" d="M130 0 q6 -4 12 0 t12 0 t12 0 t12 0 t12 0 t12 0 t12 0 t12 0 V8 H130 Z"/>
+    </g></g>
+    <rect class="casing" id="sdWallL" x="152" width="2.5"/><rect class="casing" id="sdWallR" x="185.5" width="2.5"/>
+    <rect class="casing" x="150" y="${BOT}" width="40" height="4" rx="1"/>
+    <line class="ground" x1="0" y1="${GY}" x2="146" y2="${GY}"/><line class="ground" x1="194" y1="${GY}" x2="340" y2="${GY}"/>${grass}
+    <path id="sdCable" class="cable"/><path id="sdFlow" class="cable-flow"/>
+    <g id="sdLogger" class="moving">
+      <rect class="casing" x="149" y="-6" width="42" height="6" rx="1"/>
+      <line x1="196" y1="-50" x2="204" y2="-74" stroke="var(--casing)" stroke-width="2"/><circle cx="204" cy="-75" r="2.5" fill="var(--casing)"/>
+      <rect class="logger" x="138" y="-52" width="64" height="44" rx="7"/>
+      <rect class="screen" x="146" y="-45" width="48" height="18" rx="2"/><text class="screen-t" id="sdScreen" x="170" y="-33" text-anchor="middle">DWLR</text>
+    </g>
+    <g id="sdSensor" class="moving">
+      <circle class="pulse" cx="${CX}" cy="0" r="8"/>
+      <rect class="sensor" x="${CX - 7}" y="-18" width="14" height="26" rx="3"/><path class="sensor" d="M${CX - 7} 8 h14 l-3 6 h-8 z"/>
+    </g>
+    <text class="lbl" x="8" y="${GY - 8}">Ground level</text><text class="lbl2" id="sdGl" x="8" y="${GY + 16}"></text>
+    <text class="lbl2" id="sdMpT" x="140" y="0" text-anchor="end">MP</text>
+    <text class="lbl" id="sdWlT" x="8" y="0">Water level</text><text class="lbl2" id="sdRlT" x="8" y="0"></text>
+    <text class="lbl" id="sdSnT" x="8" y="0">Sensor</text>
+    <text class="note" id="sdNote" x="170" y="22" text-anchor="middle"></text>
+    ${dim('A', 222)}${dim('B', 254)}${dim('C', 286)}${dim('D', 118, 'result')}
+  </svg>
+  <div class="legend" id="sdLegend">
+    <div class="row" data-dim="A"><span class="b">A</span><span>Measuring point (MP) above ground</span><span class="v" id="sdvA"></span></div>
+    <div class="row" data-dim="B"><span class="b">B</span><span>Sensor depth below MP (cable length)</span><span class="v" id="sdvB"></span></div>
+    <div class="row" data-dim="C"><span class="b">C</span><span>Water column above sensor (measured)</span><span class="v" id="sdvC"></span></div>
+    <div class="row result" data-dim="D"><span class="b">D</span><span>Depth to water below ground (result)</span><span class="v" id="sdvD"></span></div>
+    <div class="row result" data-dim="D" id="sdRlRow"><span class="b">RL</span><span>Water level above sea level</span><span class="v" id="sdvR"></span></div>
+  </div>
+  <div class="warnchips" id="sdWarn"></div>
+</div>`;
+  return el.firstElementChild;
+}
+function hlDim(id, on) {
+  document.querySelectorAll(`#dim${id}, #sdLegend .row[data-dim="${id}"]`).forEach((e) => e.classList.toggle('hl', on));
+}
+function formNum(key) {
+  const i = document.querySelector(`#settingsForm [data-key="${key}"]`);
+  if (!i) return Number(current[key]);
+  const v = readValue(i);
+  return typeof v === 'boolean' ? v : Number.isNaN(v) ? Number(current[key]) : v;
+}
+function setDim(id, y1, y2) {
+  const g = document.getElementById('dim' + id);
+  if (!g) return;
+  const x = Number(g.dataset.x);
+  const show = Math.abs(y2 - y1) >= 1;
+  g.style.display = show ? '' : 'none';
+  if (!show) return;
+  const set = (sel, a) => Object.entries(a).forEach(([k, v]) => g.querySelector(sel).setAttribute(k, v));
+  set('.l', { x1: x, x2: x, y1, y2 });
+  set('.t1', { x1: x - 6, x2: x + 6, y1, y2: y1 });
+  set('.t2', { x1: x - 6, x2: x + 6, y1: y2, y2 });
+  const my = (y1 + y2) / 2;
+  set('.badge', { cx: x, cy: my });
+  set('text', { x, y: my });
+}
+function updateSensorDiagram() {
+  if (!document.getElementById('sdWater')) return;
+  const { GY, BOT, CX } = SD;
+  const f2 = (v) => (Number.isFinite(v) ? v.toFixed(2) : '–');
+  const lo = sdNum('rng_lo'), hi = sdNum('rng_hi'), sg = sdNum('sg') > 0.1 ? sdNum('sg') : 1;
+  const ofs = sdNum('lvl_ofs'), B0 = sdNum('sens_depth'), A0 = sdNum('mp_h'), rl = sdNum('rl_en') === true, gl = sdNum('gl_elev');
+  const demo = !(B0 > 0);
+  const A = demo ? 0.5 : A0, B = demo ? 30 : B0;
+  const ma = lastLive && Number.isFinite(lastLive.ma) ? lastLive.ma : null;
+  const zma = (Number(sdNum('zero_ua')) || 0) / 1000;   /* sensor zero error, mA */
+  const head = ma !== null ? lo + ((ma - zma - 4) / 16) * (hi - lo) : null;
+  let C = head !== null ? head / sg + ofs : null;
+  if (demo && C === null) C = 12;
+  const sensBelowGround = B - A;
+  const D = C !== null ? B - C - A : null;
+
+  /* geometry: depths below ground are scaled; MP height gets a readable minimum size */
+  const span = Math.max(sensBelowGround, D !== null ? D : 0, 1) * 1.12;
+  const yOf = (d) => GY + (Math.max(d, 0) / span) * (BOT - 30 - GY);
+  const mpPx = A === 0 ? 0 : Math.sign(A) * Math.min(60, Math.max(16, Math.abs(A) * 30));
+  const yMP = GY - mpPx, yS = yOf(sensBelowGround);
+  let yW = D !== null ? yOf(D) : yOf(sensBelowGround * 0.4);
+  if (D !== null && D < 0) yW = Math.max(yMP + 6, GY - 10);
+  if (D !== null && D > sensBelowGround) yW = Math.min(BOT - 6, yS + 22);
+
+  $('sdWater').style.transform = `translateY(${yW}px)`;
+  $('sdLogger').style.transform = `translateY(${yMP}px)`;
+  $('sdSensor').style.transform = `translateY(${yS}px)`;
+  $('sdClipRect').setAttribute('y', yMP);
+  $('sdClipRect').setAttribute('height', BOT - yMP);
+  for (const w of ['sdWallL', 'sdWallR']) { $(w).setAttribute('y', yMP); $(w).setAttribute('height', BOT - yMP); }
+  const cable = `M${CX} ${yMP} V${yS - 18}`;
+  $('sdCable').setAttribute('d', cable); $('sdFlow').setAttribute('d', cable);
+  $('sdFlow').style.display = ma !== null ? '' : 'none';
+  document.querySelector('#sdSensor .pulse').style.display = ma !== null ? '' : 'none';
+  $('sdScreen').textContent = D !== null && !demo ? `${f2(D)} m` : 'DWLR';
+  $('sdMpT').setAttribute('y', yMP + 4);
+  $('sdWlT').setAttribute('y', yW - 4); $('sdRlT').setAttribute('y', yW + 10);
+  $('sdSnT').setAttribute('y', yS + 4);
+  $('sdGl').textContent = rl ? `GL ${f2(gl)} m MSL` : '';
+  $('sdRlT').textContent = rl && D !== null && !demo ? `RL ${f2(gl - D)} m` : '';
+  $('sdNote').textContent = demo ? 'Example drawing: enter the sensor depth (B)' : ma === null ? 'Waiting for a live reading…' : '';
+
+  setDim('A', Math.min(GY, yMP), Math.max(GY, yMP));
+  setDim('B', yMP, yS);
+  setDim('C', Math.min(yW, yS), Math.max(yW, yS));
+  setDim('D', GY, yW);
+
+  $('sdvA').textContent = `${f2(A0)} m`;
+  $('sdvB').textContent = demo ? 'not set' : `${f2(B)} m`;
+  $('sdvC').textContent = C !== null && !demo ? `${f2(C)} m` : ma === null ? 'no reading' : '–';
+  $('sdvD').textContent = D !== null && !demo ? `${f2(D)} m` : '–';
+  $('sdRlRow').style.display = rl ? '' : 'none';
+  $('sdvR').textContent = D !== null && !demo ? `${f2(gl - D)} m` : '–';
+
+  const warn = [];
+  if (demo) warn.push(['Sensor depth not set: no level is calculated or sent', 'bad']);
+  if (hi === lo) warn.push(['Range at 4 mA and 20 mA must differ', 'bad']);
+  if (ma !== null && ma < 3.6) warn.push(['Loop current below 3.6 mA: sensor open or not connected', 'bad']);
+  if (ma !== null && ma > 21) warn.push(['Loop current above 21 mA: sensor short or over range', 'bad']);
+  if (!demo && C !== null && C < 0.3) warn.push(['Sensor is (almost) dry: lower it or check the range', 'bad']);
+  if (!demo && D !== null && D < 0) warn.push(['Water above ground: check sensor depth (B) and MP height (A)', 'warn']);
+  if (Math.abs(ofs) > 0.5) warn.push([`Large level offset (${f2(ofs)} m): check B and the sensor range`, 'warn']);
+  if (!demo && C !== null && C > (hi - lo) / sg * 0.9) warn.push(['Water column near the sensor full scale: use a larger range', 'warn']);
+  if (!warn.length && !demo && D !== null) warn.push(['Configuration looks consistent', 'ok']);
+  $('sdWarn').innerHTML = warn.map(([t, c]) => `<span class="${c}">${esc(t)}</span>`).join('');
+
+  if (!$('sdCalc')) return;
+  const changed = !sdSource && ['rng_lo', 'rng_hi', 'sg', 'lvl_ofs', 'sens_depth', 'mp_h', 'rl_en', 'gl_elev'].some((k) => k in changedSettings());
+  const lines = [];
+  if (ma === null) lines.push('Waiting for a live reading from the device…');
+  else {
+    lines.push(`Live current          ${ma.toFixed(3)} mA`);
+    if (zma) lines.push(`Sensor zero          ${(zma * 1000).toFixed(1)} µA (captured in air) → corrected ${(ma - zma).toFixed(3)} mA`);
+    lines.push(`Pressure head    h  = ${f2(lo)} + (${(ma - zma).toFixed(3)} − 4) / 16 × ${f2(hi - lo)} = ${f2(head)} m`);
+    lines.push(`Water column     C  = h ÷ SG + offset = ${f2(head)} ÷ ${sg.toFixed(3)} + ${f2(ofs)} = ${f2(C)} m`);
+    if (!demo) {
+      lines.push(`Depth to water   D  = B − C − A = ${f2(B)} − ${f2(C)} − ${f2(A)} = ${f2(D)} m`);
+      if (rl) lines.push(`Reduced level    RL = GL − D = ${f2(gl)} − ${f2(D)} = ${f2(gl - D)} m MSL`);
+    }
+  }
+  if (changed) lines.push('', '(preview with unsaved values: press Save to apply)');
+  $('sdCalc').textContent = lines.join('\n');
+}
+/* Sensor label range in the unit printed on the sensor. It is a view of rng_lo/rng_hi
+ * (stored in metres of water): it loads from them and edits them, and Save stores them. */
+const RANGE_UNITS = [['1', 'm H₂O'], ['10.1972', 'bar'], ['0.0101972', 'mbar'], ['0.101972', 'kPa'], ['0.70307', 'psi'], ['0.3048', 'ft H₂O']];
+/* Enter the dip-meter water level; the page derives the level offset from the live reading. */
+function measuredLevelField() {
+  const f = document.createElement('div'); f.className = 'field';
+  const lblrow = document.createElement('div'); lblrow.className = 'lblrow';
+  const label = document.createElement('label'); label.textContent = 'Measured water level, dip meter (m)'; label.htmlFor = 'measDtw';
+  lblrow.append(label);
+  const help = helpTip('meas_dtw');
+  if (help) lblrow.append(help[0]);
+  const row = document.createElement('div'); row.className = 'row'; row.style.flexWrap = 'nowrap';
+  row.innerHTML = `<input type="number" id="measDtw" step="0.01" placeholder="e.g. 21.40">
+    <select id="measRef" style="width:auto" aria-label="Measured from"><option value="mp">from MP</option><option value="gl">below ground</option></select>`;
+  const hint = document.createElement('div'); hint.className = 'hint'; hint.id = 'measHint';
+  hint.textContent = 'Fills in the level offset below';
+  f.append(lblrow, row, hint);
+  if (help) f.append(help[1]);
+  const calc = () => {
+    const v = row.querySelector('#measDtw').value;
+    if (v === '') { hint.textContent = 'Fills in the level offset below'; hint.className = 'hint'; return; }
+    const ma = lastLive && Number.isFinite(lastLive.ma) ? lastLive.ma : null;
+    const B = formNum('sens_depth'), A = formNum('mp_h'), lo = formNum('rng_lo'), hi = formNum('rng_hi');
+    const sg = formNum('sg') > 0.1 ? formNum('sg') : 1;
+    if (ma === null) { hint.textContent = 'Needs a live reading: stay connected for a few seconds'; hint.className = 'hint bad'; return; }
+    if (!(B > 0)) { hint.textContent = 'Enter the sensor depth (B) first'; hint.className = 'hint bad'; return; }
+    if (ma < 3.6 || ma > 21) { hint.textContent = `Live current ${ma.toFixed(3)} mA is out of range: check the sensor first`; hint.className = 'hint bad'; return; }
+    const measured = Number(v) - (row.querySelector('#measRef').value === 'mp' ? A : 0);   /* depth below ground */
+    const zma = (Number(formNum('zero_ua')) || 0) / 1000;
+    const raw = (lo + ((ma - zma - 4) / 16) * (hi - lo)) / sg;                                /* water column, no offset */
+    const ofs = Math.round(((B - A - measured) - raw) * 1000) / 1000;
+    const inp = document.querySelector('#settingsForm [data-key="lvl_ofs"]');
+    if (inp) { inp.value = ofs; inp.dispatchEvent(new Event('input')); }
+    hint.className = Math.abs(ofs) > 0.5 ? 'hint bad' : 'hint ok';
+    hint.textContent = `${measured.toFixed(2)} m below ground → offset ${ofs >= 0 ? '+' : ''}${ofs.toFixed(3)} m (live ${ma.toFixed(3)} mA)` +
+      (Math.abs(ofs) > 0.5 ? ': large, check B, A and the range' : '. Press Save.');
+  };
+  row.querySelector('#measDtw').oninput = calc;
+  row.querySelector('#measRef').onchange = calc;
+  return f;
+}
+
+function rangeConverter() {
+  const el = document.createElement('div'); el.className = 'conv'; el.id = 'cvBox';
+  el.innerHTML = `<span>Sensor label range:</span><input type="number" id="cvLo" step="any" aria-label="Range at 4 mA, in the label unit">
+    <span>to</span><input type="number" id="cvHi" step="any" aria-label="Range at 20 mA, in the label unit">
+    <select id="cvUnit" aria-label="Unit printed on the sensor label">${RANGE_UNITS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>
+    <span id="cvOut" class="muted"></span>`;
+  let unit = '1';
+  try { unit = localStorage.getItem('dwlr.rangeUnit') || '1'; } catch { /* storage unavailable */ }
+  const sel = el.querySelector('#cvUnit');
+  sel.value = RANGE_UNITS.some(([v]) => v === unit) ? unit : '1';
+  sel.onchange = () => { try { localStorage.setItem('dwlr.rangeUnit', sel.value); } catch { /* ignore */ } syncRangeConverter(true); };
+  for (const [id, key] of [['#cvLo', 'rng_lo'], ['#cvHi', 'rng_hi']]) {
+    el.querySelector(id).oninput = (e) => {
+      const v = Number(e.target.value) * Number(sel.value);
+      const i = document.querySelector(`#settingsForm [data-key="${key}"]`);
+      if (!i || e.target.value === '' || !Number.isFinite(v)) return;
+      i.value = Number(v.toFixed(3));
+      i.dispatchEvent(new Event('input'));
+    };
+  }
+  return el;
+}
+/* Refresh the label-range boxes from the range fields (skip the box being typed in). */
+function syncRangeConverter(all = false) {
+  const box = document.getElementById('cvBox');
+  if (!box) return;
+  const f = Number(box.querySelector('#cvUnit').value);
+  const lo = formNum('rng_lo'), hi = formNum('rng_hi');
+  const show = (id, m) => {
+    const inp = box.querySelector(id);
+    if (all || document.activeElement !== inp) inp.value = Number.isFinite(m) ? Number((m / f).toFixed(4)) : '';
+  };
+  show('#cvLo', lo); show('#cvHi', hi);
+  box.querySelector('#cvOut').textContent = f === 1 ? '(stored in metres of water)' : `= ${Number(lo.toFixed(3))} … ${Number(hi.toFixed(3))} m of water`;
+}
+function installGuide() {
+  const el = document.createElement('details'); el.className = 'guide';
+  el.innerHTML = `<summary>Installation guide for field staff (step by step)</summary><ol>
+    <li><b>Check the sensor label</b>: output 4–20 mA and the range (e.g. 0–10 m or 0–1 bar). It must be a <i>vented</i> (gauge) sensor; keep the vent tube at the logger end dry and open (desiccant cap).</li>
+    <li><b>Choose the measuring point (MP)</b>: normally the top edge of the casing, where the cable will be clamped. Mark it with paint. Measure its height above ground → <b>A</b> (negative if it is below ground, e.g. in a pit).</li>
+    <li><b>Measure the water level manually</b> with a dip meter from the MP before lowering the sensor. Write it down.</li>
+    <li><b>Lower the sensor</b> at least 3 m below the lowest expected water level (dry season, pump running) and about 1 m above the well bottom (silt). Use the cable markings, or measure the cable from the MP to the sensor tip → <b>B</b>.</li>
+    <li><b>Clamp the cable at the MP</b> so the sensor depth cannot change. Do not hang the sensor on a loose cable over sharp edges.</li>
+    <li><b>Enter the settings</b> on this page: range at 4 mA and 20 mA (use the converter for bar or psi), specific gravity (1.00 for fresh water), A and B. Press <b>Save</b>.</li>
+    <li><b>Wait about 10 minutes</b> for the sensor temperature to settle. Compare <b>D</b> (depth to water) in the drawing with your dip-meter reading measured from the ground (dip reading − A).</li>
+    <li>If it differs by more than a few centimetres, open <b>Calibration → Field level correction</b> and enter the dip-meter depth below ground; the device sets the level offset for you.</li>
+    <li>Optional: enter the surveyed ground elevation and enable <b>Report reduced level</b>.</li>
+    <li>Finish with <b>Modem &amp; Cloud → Cloud test</b> to confirm the reading reaches the server.</li></ol>`;
+  return el;
+}
+
+function renderSettings() {
+  const root = $('settingsForm'); root.innerHTML = '';
+  for (const g of [...new Set(schema.map((s) => s.g))]) {
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `<h2>${esc(g)}</h2>`;
+    const form = document.createElement('div'); form.className = 'form';
+    for (const s of schema.filter((x) => x.g === g)) {
+      const f = document.createElement('div'); f.className = 'field';
+      const label = document.createElement('label');
+      label.textContent = s.l + (s.u ? ` (${s.u})` : '');
+      const lblrow = document.createElement('div'); lblrow.className = 'lblrow'; lblrow.append(label);
+      const help = helpTip(s.k);
+      if (help) lblrow.append(help[0]);
+      const dimId = g === 'Sensor' && DIM_KEYS[s.k];
+      let input;
+      if (s.t === 'bool') {
+        input = document.createElement('select');
+        input.innerHTML = '<option value="true">Yes</option><option value="false">No</option>';
+        input.value = String(current[s.k]);
+      } else if (s.opts) {
+        input = document.createElement('select');
+        for (const o of s.opts.split('|')) { const [v, t] = o.split(':'); const op = document.createElement('option'); op.value = v; op.textContent = t; input.append(op); }
+        const v = String(current[s.k]);
+        if (![...input.options].some((o) => o.value === v)) { const op = document.createElement('option'); op.value = v; op.textContent = v + ' (custom)'; input.append(op); }
+        input.value = v;
+      } else {
+        input = document.createElement('input');
+        input.type = s.t === 'str' ? (s.secret ? 'password' : 'text') : 'number';
+        if (s.t !== 'str') { input.min = s.min; input.max = s.max; input.step = s.t === 'int' ? 1 : 'any'; } else input.maxLength = s.max;
+        input.value = current[s.k] ?? '';
+      }
+      input.dataset.key = s.k; input.dataset.type = s.t;
+      const hint = document.createElement('div'); hint.className = 'hint';
+      const hints = [];
+      if (s.t === 'int' || s.t === 'float') hints.push(`${s.min} … ${s.max}`);
+      if (s.reboot) hints.push('applies after reboot');
+      if (s.secret) hints.push('*** keeps the stored value');
+      hint.textContent = hints.join(' · ');
+      input.oninput = input.onchange = () => {
+        const v = readValue(input);
+        const out = (s.t === 'int' || s.t === 'float') && (Number.isNaN(v) || v < s.min || v > s.max);
+        f.classList.toggle('invalid', out);
+        f.classList.toggle('changed', String(v) !== String(current[s.k]));
+        if (s.k === 'mq_tls') {
+          const port = root.querySelector('[data-key=mq_port]');
+          if (port && (port.value === '1883' || port.value === '8883')) { port.value = input.value === 'true' ? 8883 : 1883; port.dispatchEvent(new Event('input')); }
+        }
+        updateSaveBar();
+        if (g === 'Sensor') { updateSensorDiagram(); if (s.k === 'rng_lo' || s.k === 'rng_hi') syncRangeConverter(); }
+      };
+      if (dimId) {
+        input.addEventListener('focus', () => hlDim(dimId, true));
+        input.addEventListener('blur', () => hlDim(dimId, false));
+        lblrow.addEventListener('mouseenter', () => hlDim(dimId, true));
+        lblrow.addEventListener('mouseleave', () => hlDim(dimId, false));
+      }
+      f.append(lblrow, input, hint);
+      if (help) f.append(help[1]);
+      if (g === 'Sensor' && s.k === 'lvl_ofs') form.append(measuredLevelField());
+      form.append(f);
+    }
+    if (g === 'Sensor') {
+      const layout = document.createElement('div'); layout.className = 'sensor-layout';
+      const right = document.createElement('div');
+      const calc = document.createElement('div'); calc.className = 'calc'; calc.id = 'sdCalc';
+      right.append(form, calc, rangeConverter(), installGuide());
+      sdSource = null;
+      layout.append(getSensorPanel(), right);
+      card.append(layout); root.append(card);
+      updateSensorDiagram();
+      syncRangeConverter(true);
+    } else {
+      card.append(form); root.append(card);
+    }
+  }
+  updateSaveBar();
+}
+$('btnSave').onclick = (e) => busy(e.currentTarget, async () => {
+  const changed = changedSettings();
+  if (!Object.keys(changed).length) return;
+  try {
+    const r = await call('cfg_set', { settings: changed });
+    current = r.settings; renderSettings();
+    toast(`Saved ${Object.keys(changed).length} setting(s)` + (r.reboot_required ? '. Reboot to apply.' : ''), 'ok', 5000);
+  } catch (err) { toast(err.message, 'bad', 7000); $('saveMsg').textContent = err.message; $('saveMsg').className = 'bad'; }
+});
+$('btnDiscard').onclick = () => renderSettings();
+$('btnReload').onclick = (e) => busy(e.currentTarget, () => { schema = []; return loadSettings(); });
+
+/* =====================================================================
+ * Calibration
+ * ===================================================================== */
+let calPrefilled = false;
+async function loadCal() {
+  try {
+    const c = await call('cal_get');
+    const s = c.stored;
+    kv($('calKv'), [['Loop current', fmt(c.live && c.live.ma, 3, ' mA')], ['Raw ADC counts', fmt(c.live && c.live.counts, 1)],
+      ['Calibration in use', c.calibrated ? 'yes (saved calibration)' : s ? 'no: saved for a different front end' : 'no (nominal resistor values)', c.calibrated ? 'ok' : 'warn'],
+      ['ADC range', `±${c.fsr_v} V`], ['Nominal', fmt(c.nominal_ua_per_count, 4, ' µA/count')]]);
+    /* The saved calibration lives in the device's persistent store: shown after every reconnect/reboot. */
+    if (s) {
+      const when = s.ts > 1700000000 ? new Date(s.ts * 1000).toLocaleString() : 'date unknown';
+      $('calSavedState').textContent = c.calibrated ? '· active' : '· not active';
+      $('calSaved').className = '';
+      $('calSaved').innerHTML = `<table><thead><tr><th>Point</th><th>Reference</th><th>ADC counts</th></tr></thead><tbody>
+        <tr><td>Low</td><td>${(s.u1 / 1000).toFixed(3)} mA</td><td>${s.c1.toFixed(1)}</td></tr>
+        <tr><td>High</td><td>${(s.u2 / 1000).toFixed(3)} mA</td><td>${s.c2.toFixed(1)}</td></tr></tbody></table>
+        <div class="kv" style="margin-top:10px">${[['Gain', `${s.gain.toFixed(5)} µA/count (${(s.gain / c.nominal_ua_per_count).toFixed(4)} × nominal)`],
+          ['Offset', `${s.offset_ua.toFixed(1)} µA`], ['Front end', `${s.shunt} Ω shunt${s.divider ? ', divider' : ''}`], ['Saved', when]]
+          .map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>`).join('')}</div>`;
+      if (!calPrefilled && document.activeElement !== $('calMa1') && document.activeElement !== $('calMa2')) {
+        $('calMa1').value = (s.u1 / 1000).toFixed(3); $('calMa2').value = (s.u2 / 1000).toFixed(3); calPrefilled = true;
+      }
+    } else {
+      $('calSavedState').textContent = '';
+      $('calSaved').className = 'muted';
+      $('calSaved').textContent = 'No calibration saved. Readings use the nominal resistor values.';
+    }
+    const saved = (n) => s ? `saved: ${(s['u' + n] / 1000).toFixed(3)} mA = ${s['c' + n].toFixed(1)} counts` : '';
+    $('cap1').textContent = c.point1 ? `✓ new: ${c.point1.counts.toFixed(1)} counts (not saved yet)` : saved(1);
+    $('cap2').textContent = c.point2 ? `✓ new: ${c.point2.counts.toFixed(1)} counts (not saved yet)` : saved(2);
+    $('cap1').className = c.point1 ? 'ok' : 'muted'; $('cap2').className = c.point2 ? 'ok' : 'muted';
+  } catch { /* visible in the terminal */ }
+}
+function capture(point, btn) {
+  const ma = Number($(point === 1 ? 'calMa1' : 'calMa2').value);
+  busy(btn, async () => {
+    try { await call('cal_capture', { point, ma, seconds: 10 }, 60000); toast(`Point ${point} captured`, 'ok'); loadCal(); }
+    catch (e) { toast(e.message, 'bad', 6000); }
+  });
+}
+$('btnCap1').onclick = (e) => capture(1, e.currentTarget);
+$('btnCap2').onclick = (e) => capture(2, e.currentTarget);
+$('btnCommit').onclick = (e) => busy(e.currentTarget, async () => {
+  try { const r = await call('cal_commit'); toast(r.result, 'ok', 7000); loadCal(); } catch (err) { toast(err.message, 'bad', 8000); }
+});
+$('btnCalReset').onclick = async () => {
+  if (await confirmBox('Clear calibration?', 'Readings use nominal resistor values until you calibrate again.', 'Clear', true)) {
+    try { await call('cal_reset'); toast('Calibration cleared', 'ok'); loadCal(); } catch (e) { toast(e.message, 'bad'); }
+  }
+};
+/* ---------- local firmware update over Bluetooth ---------- */
+const ota = { file: null, data: null, info: null, cancel: false, running: false };
+function cstr(b, o, n) { let t = ''; for (let i = o; i < o + n && b[i]; i++) t += String.fromCharCode(b[i]); return t; }
+function b64(bytes) { let t = ''; for (let i = 0; i < bytes.length; i += 0x2000) t += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x2000)); return btoa(t); }
+$('otaFile').onchange = async () => {
+  ota.file = $('otaFile').files[0] || null; ota.data = null; $('btnOtaGo').disabled = true; $('otaSel').className = 'muted'; $('otaSel').textContent = '';
+  if (!ota.file) return;
+  const buf = new Uint8Array(await ota.file.arrayBuffer());
+  const version = cstr(buf, 48, 32), project = cstr(buf, 80, 32);
+  if (buf[0] !== 0xE9 || project !== 'dwlr_fw') {
+    $('otaSel').className = 'bad';
+    $('otaSel').textContent = buf[0] === 0xE9 && buf.length > 0x10000 && buf[0x1000] === 0xE9 ? 'This is the merged file: choose dwlr_fw.bin' : `Not a DWLR application image${project ? ' (project ' + project + ')' : ''}`;
+    return;
+  }
+  const running = (lastStatus && lastStatus.device && lastStatus.device.fw) || '?';
+  ota.data = buf; ota.info = { version, project };
+  $('otaSel').textContent = `${project} ${version} (${Math.round(buf.length / 1024)} KB) · running ${running}`;
+  $('btnOtaGo').disabled = false;
+};
+$('btnOtaCancel').onclick = () => { ota.cancel = true; };
+$('btnOtaGo').onclick = async () => {
+  if (!ota.data || ota.running) return;
+  const running = lastStatus && lastStatus.device && lastStatus.device.fw;
+  if (running === ota.info.version && !(await confirmBox('Same version', `The device already runs ${running}. Install it again?`, 'Install'))) return;
+  ota.running = true; ota.cancel = false;
+  $('btnOtaGo').disabled = true; $('otaFile').disabled = true; $('btnOtaCancel').classList.remove('hidden'); $('otaRun').classList.remove('hidden');
+  const msg = (t, c = 'muted') => { $('otaMsg').textContent = t; $('otaMsg').className = c; };
+  stopStatusPolling();   /* the link is busy with the transfer */
+  const data = ota.data, size = data.length;
+  try {
+    msg('Checking the file…');
+    const sha = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data)), (x) => x.toString(16).padStart(2, '0')).join('');
+    const begin = await call('ota_begin', { size, sha256: sha }, 20000);
+    const chunk = begin.chunk || 1536;
+    let off = 0, retries = 0;
+    const t0 = performance.now();
+    while (off < size) {
+      if (ota.cancel) { await call('ota_abort').catch(() => {}); throw new Error('cancelled'); }
+      try {
+        const r = await call('ota_chunk', { off, d: b64(data.subarray(off, Math.min(off + chunk, size))) }, 10000, { bulk: true });
+        off = r.next; retries = 0;
+      } catch (e) {
+        /* Lost or rejected line: ask where the device is and continue from there. */
+        if (++retries > 6) throw e;
+        const st = await call('ota_local', {}, 8000);
+        if (st.state !== 'RECEIVING') throw new Error(st.error || e.message);
+        off = st.received;
+      }
+      $('otaBar').value = off / size * 100;
+      const secs = (performance.now() - t0) / 1000, rate = off / Math.max(secs, 0.1);
+      msg(`Sending ${Math.floor(off / size * 100)} % · ${(rate / 1024).toFixed(1)} KB/s`);
+      $('otaEta').textContent = rate > 0 ? `${Math.ceil((size - off) / rate / 60)} min left` : '';
+    }
+    msg('Verifying the image on the device…');
+    await call('ota_end', {}, 30000);
+    $('otaBar').value = 100; $('otaEta').textContent = '';
+    msg(`Installed ${ota.info.version}. The device restarts now; reconnect in about 20 seconds and check the version.`, 'ok');
+    toast(`Firmware ${ota.info.version} installed, device restarting`, 'ok', 8000);
+  } catch (e) {
+    msg(`Update failed: ${e.message}. The current firmware is unchanged.`, 'bad');
+    toast('Update failed: ' + e.message, 'bad', 8000);
+    if (ble.authed) startStatusPolling();
+  } finally {
+    ota.running = false;
+    $('btnOtaCancel').classList.add('hidden'); $('otaFile').disabled = false; $('btnOtaGo').disabled = !ota.data;
+  }
+};
+
+$('btnLevelSet').onclick = (e) => {
+  const v = $('manualDtw').value;
+  if (v === '') { toast('Enter the measured depth to water', 'warn'); return; }
+  busy(e.currentTarget, async () => {
+    try { const r = await call('level_set', { dtw: Number(v) }, 180000); $('levelMsg').textContent = `Offset set to ${r.lvl_ofs.toFixed(3)} m`; toast('Level corrected', 'ok'); }
+    catch (err) { $('levelMsg').textContent = err.message; toast(err.message, 'bad'); }
+  });
+};
+
+/* =====================================================================
+ * Data
+ * ===================================================================== */
+async function loadDataInfo() {
+  try {
+    const i = await call('log_info');
+    kv($('dataKv'), [['Stored readings', i.next - i.oldest], ['Sequence range', `${i.oldest} … ${i.next - 1}`], ['Capacity', i.capacity], ['Waiting to upload', i.backlog]]);
+    return i;
+  } catch (e) { toast(e.message, 'bad'); return null; }
+}
+function renderRows(rows) {
+  const t = $('dataTable');
+  t.innerHTML = '<tr><th>#</th><th>Time</th><th>Depth to water (m)</th><th>Water column (m)</th><th>mA</th><th>SD µA</th><th>Flags</th></tr>';
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    const d = r[2] ? new Date(r[1] * 1000).toLocaleString() : `uptime ${r[1]} s`;
+    tr.innerHTML = `<td>${r[0]}</td><td>${d}</td><td>${fmt(r[3], 3)}</td><td>${fmt(r[4], 3)}</td><td>${fmt(r[5], 3)}</td><td>${r[6]}</td><td>${r[7]}</td>`;
+    t.append(tr);
+  }
+}
+$('btnRecent').onclick = (e) => busy(e.currentTarget, async () => {
+  const i = await loadDataInfo(); if (!i) return;
+  try { const r = await call('log_read', { seq: Math.max(i.oldest, i.next - 40), n: 40 }); renderRows(r.rows.reverse()); } catch (err) { toast(err.message, 'bad'); }
+});
+$('btnDownload').onclick = (e) => busy(e.currentTarget, async () => {
+  const i = await loadDataInfo(); if (!i) return;
+  const from = $('dFrom').value ? new Date($('dFrom').value + 'T00:00:00').getTime() / 1000 : 0;
+  const to = $('dTo').value ? new Date($('dTo').value + 'T23:59:59').getTime() / 1000 : Infinity;
+  const lines = ['seq,utc_iso,local_time,depth_to_water_m,water_column_m,current_ma,sd_ua,flags'];
+  let seq = i.oldest;
+  try {
+    while (seq < i.next) {
+      const r = await call('log_read', { seq, n: 40 }, 30000);
+      for (const row of r.rows) {
+        if (row[2] && (row[1] < from || row[1] > to)) continue;
+        const d = row[2] ? new Date(row[1] * 1000) : null;
+        lines.push([row[0], d ? d.toISOString() : '', d ? d.toLocaleString().replace(',', '') : 'uptime ' + row[1], row[3] ?? '', row[4] ?? '', row[5], row[6], row[7]].join(','));
+      }
+      if (r.next <= seq) break;
+      seq = r.next;
+      $('dlStatus').textContent = `Reading… ${Math.round(((seq - i.oldest) / Math.max(1, i.next - i.oldest)) * 100)} %`;
+    }
+    download(`${(ble.dev && ble.dev.name) || 'dwlr'}_${new Date().toISOString().slice(0, 10)}.csv`, lines.join('\n'), 'text/csv');
+    $('dlStatus').textContent = `Downloaded ${lines.length - 1} readings`;
+  } catch (err) { $('dlStatus').textContent = err.message; }
+});
+
+/* =====================================================================
+ * Events
+ * ===================================================================== */
+let evOldest = null;
+function eventRow(e) {
+  const tr = document.createElement('tr');
+  const cls = e.sev === 2 ? 'bad' : e.sev === 1 ? 'warn' : '';
+  tr.innerHTML = `<td>${e.seq}</td><td>${e.ts_utc ? new Date(e.ts * 1000).toLocaleString() : 'uptime ' + e.ts + ' s'}</td><td class="${cls}"><b>${esc(e.name.replace(/_/g, ' '))}</b></td><td></td>`;
+  tr.lastChild.textContent = e.msg;
+  return tr;
+}
+async function loadEvents(older) {
+  try {
+    if (older && (evOldest === null || evOldest <= 1)) { toast('No older events', 'warn'); return; }
+    const args = older ? { seq: Math.max(1, evOldest - 15), n: 15 } : { n: 15 };
+    const r = await call('ev_read', args);
+    const t = $('evTable');
+    if (!older) t.innerHTML = '<tr><th>#</th><th>Time</th><th>Event</th><th>Detail</th></tr>';
+    const list = r.events.filter((e) => !older || e.seq < evOldest).reverse();
+    for (const e of list) t.append(eventRow(e));
+    if (r.events.length) evOldest = Math.min(evOldest ?? Infinity, ...r.events.map((e) => e.seq));
+  } catch (e) { toast(e.message, 'bad'); }
+}
+$('btnEvents').onclick = (e) => busy(e.currentTarget, () => { evOldest = null; return loadEvents(false); });
+$('btnEventsOlder').onclick = (e) => busy(e.currentTarget, () => loadEvents(true));
+
+/* =====================================================================
+ * Tools
+ * ===================================================================== */
+function showOut(id, obj) { const el = $(id); el.classList.remove('hidden'); el.innerHTML = highlight(JSON.stringify(obj, null, 2)); }
+$('btnMeasure').onclick = (e) => busy(e.currentTarget, async () => {
+  try { const r = await call('measure', {}, 180000); showOut('toolOut', r); toast(`Reading #${r.seq}: ${fmt(r.ma, 3, ' mA')}`, 'ok'); } catch (err) { toast(err.message, 'bad'); }
+});
+$('btnTime').onclick = (e) => busy(e.currentTarget, async () => {
+  try { const r = await call('time', { set: Math.floor(Date.now() / 1000), force: true }); showOut('toolOut', r); toast('Clock set to ' + r.local, 'ok'); } catch (err) { toast(err.message, 'bad'); }
+});
+$('btnDiag').onclick = (e) => busy(e.currentTarget, async () => { try { showOut('toolOut', await call('diag')); } catch (err) { toast(err.message, 'bad'); } });
+$('btnReboot').onclick = async () => {
+  if (await confirmBox('Reboot the device?', 'Logging and the network restart. Bluetooth disconnects; reconnect after about 10 seconds.', 'Reboot')) {
+    try { const r = await call('reboot'); toast(r.result || 'Rebooting…', 'ok'); } catch (e) { toast(e.message, 'bad'); }
+  }
+};
+$('btnAt').onclick = (e) => busy(e.currentTarget, async () => {
+  const at = $('atCmd').value.trim() || 'AT';
+  try { showOut('atOut', await call('at', { at, timeout: 10000 }, 90000)); } catch (err) { showOut('atOut', { error: err.message }); }
+});
+$('atCmd').onkeydown = (e) => { if (e.key === 'Enter') $('btnAt').click(); };
+$('btnFactory').onclick = async () => {
+  const erase = $('eraseData').checked;
+  if (!(await confirmBox('Factory reset?', `All settings and calibration return to defaults${erase ? ' and ALL logged data is erased' : ''}. The device reboots.`, 'Factory reset', true))) return;
+  try { await call('factory_reset', { confirm: 'FACTORY', erase_data: erase }); toast('Factory reset, rebooting', 'ok'); } catch (e) { toast(e.message, 'bad'); }
+};
+
+/* =====================================================================
+ * Installation wizard: every step saves to the device as it goes,
+ * progress is remembered per device (browser storage, convenience only).
+ * ===================================================================== */
+const wz = { i: 0, done: {}, hist: [], zero: null, level: null, test: null };
+const TZ_CHOICES = [['IST-5:30', 'India (IST, UTC+5:30)'], ['UTC0', 'UTC'], ['NPT-5:45', 'Nepal (UTC+5:45)'], ['BDT-6', 'Bangladesh (UTC+6)'], ['<+04>-4', 'Gulf (UTC+4)']];
+const APN_CHOICES = [['', 'Automatic (recommended)'], ['jionet', 'Jio'], ['airtelgprs.com', 'Airtel'], ['bsnlnet', 'BSNL'], ['www', 'Vi (Vodafone Idea)']];
+const LOG_CHOICES = [5, 10, 15, 30, 60, 120];
+
+function wzKey() { return 'dwlr.wizard.' + ((lastStatus && lastStatus.device && lastStatus.device.id) || 'device'); }
+function wzLoad() {
+  try { const v = JSON.parse(localStorage.getItem(wzKey()) || '{}'); wz.i = v.i || 0; wz.done = v.done || {}; } catch { wz.i = 0; wz.done = {}; }
+}
+function wzStore() { try { localStorage.setItem(wzKey(), JSON.stringify({ i: wz.i, done: wz.done })); } catch { /* storage unavailable */ } }
+async function wzSave(obj) {
+  const r = await call('cfg_set', { settings: obj });
+  current = r.settings;
+  return r;
+}
+function wzField(label, key, inputHtml, hint = '') {
+  const f = document.createElement('div'); f.className = 'field';
+  f.innerHTML = `<div class="lblrow"><label>${esc(label)}</label></div>${inputHtml}<div class="hint">${esc(hint)}</div>`;
+  const h = key && helpTip(key);
+  if (h) { f.querySelector('.lblrow').append(h[0]); f.append(h[1]); }
+  return f;
+}
+function wzOpts(list, value) {
+  let html = list.map(([v, t]) => `<option value="${esc(v)}" ${String(v) === String(value) ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  if (!list.some(([v]) => String(v) === String(value))) html += `<option value="${esc(value)}" selected>${esc(value)} (current)</option>`;
+  return html;
+}
+const wv = (id) => document.getElementById(id);
+const num = (id) => { const e = wv(id); return e && e.value !== '' ? Number(e.value) : NaN; };
+
+const WZ_STEPS = [
+  {
+    id: 'check', title: 'Check device', sub: 'Device, clock, SIM and signal',
+    render(el) {
+      el.innerHTML = `<p class="muted">This wizard sets up the logger at the well, step by step. Every step is saved on the device as you go;
+        you can leave and come back. Have ready: the sensor label, a measuring tape, a dip meter and this phone with location on.</p>
+        <div class="grid"><div class="kv" id="wzDev"></div><div class="kv" id="wzNetKv"></div></div>`;
+    },
+    live(s) {
+      const d = s.device || {}, t = s.time || {}, n = s.net || {};
+      if (wv('wzDev')) kv(wv('wzDev'), [['Device ID', d.id], ['Firmware', d.fw], ['Clock', t.valid ? t.local : 'not set (next step)', t.valid ? 'ok' : 'warn'], ['Site', d.site || 'not set']]);
+      if (wv('wzNetKv')) kv(wv('wzNetKv'), [['Network', n.state, n.state === 'ONLINE' ? 'ok' : 'warn'], ['Operator', `${n.oper || '–'} ${n.tech || ''}`],
+        ['Signal', n.csq === undefined || n.csq === 99 ? 'no signal' : `CSQ ${n.csq} (${n.rssi_dbm} dBm)`, n.csq >= 10 && n.csq !== 99 ? 'ok' : 'warn'], ['Registration', n.reg]]);
+    },
+    async next() { return true; },
+  },
+  {
+    id: 'site', title: 'Site, time & location', sub: 'Name, clock, GPS position',
+    render(el) {
+      el.innerHTML = '<div class="form" id="wzForm"></div>';
+      const f = wv('wzForm');
+      f.append(
+        wzField('Site name', 'site', `<input type="text" id="wzSite" maxlength="31" value="${esc(current.site || '')}" placeholder="Well ID / village">`),
+        wzField('Timezone', 'tz', `<select id="wzTz">${wzOpts(TZ_CHOICES, current.tz || 'IST-5:30')}</select>`),
+        wzField('Device clock', '', `<div class="row"><span id="wzClock" class="bigsm">–</span><button class="btn" type="button" id="wzSetClock">Set from this phone</button></div>`,
+          'Readings are only stored once the clock is set (it also sets itself from the network).'),
+        wzField('Latitude', 'lat', `<input type="number" id="wzLat" step="any" value="${current.lat || ''}" placeholder="15.828126">`),
+        wzField('Longitude', 'lon', `<input type="number" id="wzLon" step="any" value="${current.lon || ''}" placeholder="78.037279">`),
+        wzField('Position', '', `<div class="row"><button class="btn" type="button" id="wzGps">Use this phone's location</button><span id="wzGpsMsg" class="muted"></span></div>`,
+          'Stand next to the well. Sent to ThingsBoard for the map.'),
+        wzField('Ground elevation above sea level (m, optional)', 'gl_elev', `<input type="number" id="wzGl" step="0.01" value="${current.rl_en ? current.gl_elev : ''}" placeholder="from survey">`,
+          'Only from a survey or project records; phone altitude is not accurate enough. Enables the reduced level (RL).'));
+      wv('wzSetClock').onclick = (e) => busy(e.currentTarget, async () => {
+        try { const r = await call('time', { set: Math.floor(Date.now() / 1000), force: true }); toast('Clock set to ' + r.local, 'ok'); refreshStatus(); } catch (err) { toast(err.message, 'bad'); }
+      });
+      wv('wzGps').onclick = () => {
+        if (!navigator.geolocation) { wv('wzGpsMsg').textContent = 'Location not available in this browser'; return; }
+        wv('wzGpsMsg').textContent = 'Getting position…';
+        navigator.geolocation.getCurrentPosition((p) => {
+          wv('wzLat').value = p.coords.latitude.toFixed(6); wv('wzLon').value = p.coords.longitude.toFixed(6);
+          wv('wzGpsMsg').textContent = `±${Math.round(p.coords.accuracy)} m`;
+          wv('wzGpsMsg').className = p.coords.accuracy <= 30 ? 'ok' : 'warn';
+        }, (err) => { wv('wzGpsMsg').textContent = 'No position: ' + err.message; wv('wzGpsMsg').className = 'bad'; },
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+      };
+    },
+    live(s) { const t = s.time || {}; if (wv('wzClock')) { wv('wzClock').textContent = t.valid ? t.local : 'not set'; wv('wzClock').className = 'bigsm ' + (t.valid ? 'ok' : 'bad'); } },
+    async next() {
+      if (!(lastStatus && lastStatus.time && lastStatus.time.valid)) { toast('Set the device clock first: readings are not stored without a valid time', 'warn', 6000); return false; }
+      const lat = num('wzLat'), lon = num('wzLon'), gl = num('wzGl');
+      if ((wv('wzLat').value !== '' && !(lat >= -90 && lat <= 90)) || (wv('wzLon').value !== '' && !(lon >= -180 && lon <= 180))) { toast('Latitude −90…90, longitude −180…180', 'warn'); return false; }
+      const o = { site: wv('wzSite').value.trim(), tz: wv('wzTz').value, lat: Number.isFinite(lat) ? lat : 0, lon: Number.isFinite(lon) ? lon : 0, rl_en: Number.isFinite(gl) };
+      if (Number.isFinite(gl)) o.gl_elev = gl;
+      await wzSave(o);
+      return true;
+    },
+  },
+  {
+    id: 'board', title: 'Logger board', sub: 'Front end and calibration',
+    render(el) {
+      el.innerHTML = '<div class="form" id="wzForm"></div><div class="card inner" id="wzCal">Reading calibration…</div>';
+      wv('wzForm').append(wzField('Shunt resistor on this board', 'afe_shunt',
+        `<select id="wzShunt">${wzOpts([['100', '100 Ω (new boards, 24 V boost)'], ['249', '249 Ω (older boards)']], current.afe_shunt)}</select>`,
+        'Check the resistor marking next to the sensor connector.'));
+      call('cal_get').then((c) => {
+        const st = c.stored;
+        wv('wzCal').innerHTML = c.calibrated
+          ? `<span class="pill ok">Calibrated</span> ${esc(st.shunt + ' Ω')}, saved ${st.ts > 1700000000 ? esc(new Date(st.ts * 1000).toLocaleDateString()) : ''}. Nothing to do.`
+          : `<span class="pill warn">Not calibrated</span> Readings use the nominal resistor values (about ±0.5 %). For best accuracy calibrate the input with a
+             loop calibrator on the <a href="#" id="wzToCal">Calibration</a> page, then come back here. This step is optional.`;
+        const a = wv('wzToCal'); if (a) a.onclick = (e) => { e.preventDefault(); showTab('cal'); };
+      }).catch(() => { wv('wzCal').textContent = 'Could not read the calibration.'; });
+    },
+    async next() {
+      const v = Number(wv('wzShunt').value);
+      if (v !== Number(current.afe_shunt)) await wzSave({ afe_shunt: v });
+      return true;
+    },
+  },
+  {
+    id: 'sensor', title: 'Sensor', sub: 'Range and liquid',
+    render(el) {
+      const unit = (() => { try { return localStorage.getItem('dwlr.rangeUnit') || '1'; } catch { return '1'; } })();
+      const f = Number(unit) || 1;
+      el.innerHTML = `<p class="muted">Copy the range from the sensor label (e.g. "0–10 m" or "0–1 bar", output 4–20 mA).</p><div class="form" id="wzForm"></div>
+        <div class="hint" id="wzRangeOut"></div>`;
+      wv('wzForm').append(
+        wzField('Range at 4 mA', 'rng_lo', `<input type="number" id="wzLo" step="any" value="${Number(((current.rng_lo || 0) / f).toFixed(4))}">`),
+        wzField('Range at 20 mA', 'rng_hi', `<input type="number" id="wzHi" step="any" value="${Number(((current.rng_hi || 0) / f).toFixed(4))}">`),
+        wzField('Unit on the label', '', `<select id="wzUnit">${RANGE_UNITS.map(([v, t]) => `<option value="${v}" ${v === unit ? 'selected' : ''}>${t}</option>`).join('')}</select>`),
+        wzField('Liquid (specific gravity)', 'sg', `<select id="wzSg">${wzOpts([['1', 'Fresh groundwater (1.000)'], ['1.01', 'Brackish (1.010)'], ['1.025', 'Sea water (1.025)']], current.sg)}</select>`),
+        wzField('Sensor type', '', `<label class="check"><input type="checkbox" id="wzVented" checked> Vented (gauge) sensor: the cable has a vent tube</label>`,
+          'Absolute sensors read about 10 m in air and need barometric compensation; not supported for the zero step.'));
+      const show = () => {
+        const u = Number(wv('wzUnit').value), lo = num('wzLo') * u, hi = num('wzHi') * u;
+        wv('wzRangeOut').textContent = Number.isFinite(lo) && Number.isFinite(hi) ? `Stored as ${lo.toFixed(3)} … ${hi.toFixed(3)} m of water` : '';
+      };
+      let prevU = f;
+      wv('wzUnit').onchange = () => {
+        /* Same physical range, shown in the newly chosen unit. */
+        const u = Number(wv('wzUnit').value);
+        try { localStorage.setItem('dwlr.rangeUnit', wv('wzUnit').value); } catch { /* ignore */ }
+        for (const id of ['wzLo', 'wzHi']) if (wv(id).value !== '') wv(id).value = Number((num(id) * prevU / u).toFixed(4));
+        prevU = u;
+        show();
+      };
+      wv('wzLo').oninput = wv('wzHi').oninput = show;
+      show();
+    },
+    async next() {
+      const u = Number(wv('wzUnit').value), lo = num('wzLo') * u, hi = num('wzHi') * u;
+      if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) { toast('Enter the range: the 20 mA value must be above the 4 mA value', 'warn'); return false; }
+      wz.vented = wv('wzVented').checked;
+      await wzSave({ rng_lo: Number(lo.toFixed(3)), rng_hi: Number(hi.toFixed(3)), sg: Number(wv('wzSg').value) });
+      return true;
+    },
+  },
+  {
+    id: 'zero', title: 'Zero in air', sub: 'Remove the sensor zero error', skip: true,
+    render(el) {
+      el.innerHTML = `<div class="grid"><div>
+        <ol class="guide-list">
+          <li>Connect the sensor to the logger, <b>out of the water</b>.</li>
+          <li>Let it hang still, pointing down, in the shade for about 2 minutes (temperature).</li>
+          <li>Make sure the vent tube at the cable end is open and dry.</li>
+          <li>Press <b>Capture zero</b> and keep the sensor still for 20 seconds.</li>
+        </ol></div>
+        <div><div class="muted small">Live loop current</div><div class="bigval" id="wzZeroMa">–</div>
+          <div class="muted small" id="wzZeroEq"></div>
+          <div class="kv" style="margin-top:10px" id="wzZeroKv"></div></div></div>
+        <div class="row" style="margin-top:12px"><button class="btn primary" type="button" id="wzZeroGo">Capture zero (20 s)</button>
+          <button class="btn" type="button" id="wzZeroClr">Clear zero</button><span id="wzZeroMsg"></span></div>`;
+      const showKv = () => kv(wv('wzZeroKv'), [['Stored zero', `${Number(current.zero_ua || 0).toFixed(1)} µA`],
+        ['Equals', `${((Number(current.zero_ua || 0) / 16000) * ((current.rng_hi || 0) - (current.rng_lo || 0)) * 100).toFixed(1)} cm of water`]]);
+      showKv();
+      if (wz.vented === false) wv('wzZeroMsg').innerHTML = '<span class="warn">Not a vented sensor: skip this step.</span>';
+      wv('wzZeroGo').onclick = (e) => busy(e.currentTarget, async () => {
+        wv('wzZeroMsg').textContent = 'Measuring for 20 s, keep the sensor still…'; wv('wzZeroMsg').className = 'muted';
+        try {
+          const r = await call('zero_set', { seconds: 20 }, 90000);
+          current.zero_ua = r.zero_ua; showKv(); wz.zero = r;
+          wv('wzZeroMsg').textContent = `Zero saved: ${r.ma.toFixed(3)} mA in air → ${r.zero_ua.toFixed(1)} µA (${(r.zero_m * 100).toFixed(1)} cm)`;
+          wv('wzZeroMsg').className = Math.abs(r.zero_ua) > 160 ? 'warn' : 'ok';
+          if (Math.abs(r.zero_ua) > 160) toast('Zero saved, but it is large (over 1 % of the range). Check that the sensor was really out of the water.', 'warn', 8000);
+        } catch (err) { wv('wzZeroMsg').textContent = err.message; wv('wzZeroMsg').className = 'bad'; }
+      });
+      wv('wzZeroClr').onclick = (e) => busy(e.currentTarget, async () => {
+        try { await call('zero_clear'); current.zero_ua = 0; showKv(); wv('wzZeroMsg').textContent = 'Zero cleared'; wv('wzZeroMsg').className = 'muted'; } catch (err) { toast(err.message, 'bad'); }
+      });
+    },
+    live(s) {
+      const l = s.live || {};
+      if (!wv('wzZeroMa')) return;
+      wv('wzZeroMa').textContent = Number.isFinite(l.ma) ? `${l.ma.toFixed(3)} mA` : '–';
+      const d = Number.isFinite(l.ma) ? (l.ma - 4) * 1000 : NaN;
+      wv('wzZeroEq').textContent = Number.isFinite(d) ? `${d >= 0 ? '+' : ''}${d.toFixed(0)} µA from 4.000 mA` : '';
+      wv('wzZeroEq').className = 'small ' + (!Number.isFinite(d) ? 'muted' : Math.abs(d) <= 160 ? 'ok' : Math.abs(d) <= 320 ? 'warn' : 'bad');
+    },
+    async next() { return true; },
+  },
+  {
+    id: 'depth', title: 'Install sensor', sub: 'Measuring point and cable depth',
+    render(el) {
+      el.innerHTML = `<div class="sensor-layout"><div id="wzDiag"></div><div>
+        <ol class="guide-list">
+          <li>Mark the <b>measuring point (MP)</b>: normally the top edge of the casing, where the cable is clamped.</li>
+          <li>Measure the MP height above the ground → <b>A</b> (negative if it is below ground, e.g. in a pit).</li>
+          <li>Lower the sensor at least 3 m below the lowest expected water level and about 1 m above the bottom.</li>
+          <li>Read the cable length from the MP to the sensor → <b>B</b>. Clamp the cable at the MP.</li>
+        </ol><div class="form" id="wzForm"></div></div></div>`;
+      wv('wzForm').append(
+        wzField('A · Measuring point above ground (m)', 'mp_h', `<input type="number" id="wzA" step="0.01" value="${current.mp_h ?? 0}">`),
+        wzField('B · Sensor depth below MP (m)', 'sens_depth', `<input type="number" id="wzB" step="0.01" value="${current.sens_depth || ''}" placeholder="e.g. 45.00">`));
+      sdSource = (k) => {
+        if (k === 'mp_h' && wv('wzA') && wv('wzA').value !== '') return num('wzA');
+        if (k === 'sens_depth' && wv('wzB')) return wv('wzB').value === '' ? 0 : num('wzB');
+        return k === 'rl_en' ? current.rl_en === true : Number(current[k]);
+      };
+      wv('wzDiag').append(getSensorPanel());
+      wv('wzA').oninput = wv('wzB').oninput = updateSensorDiagram;
+      wv('wzA').onfocus = () => hlDim('A', true); wv('wzA').onblur = () => hlDim('A', false);
+      wv('wzB').onfocus = () => hlDim('B', true); wv('wzB').onblur = () => hlDim('B', false);
+      updateSensorDiagram();
+    },
+    live() { updateSensorDiagram(); },
+    leave() { sdSource = null; },
+    async next() {
+      const A = num('wzA'), B = num('wzB');
+      if (!(B > 0)) { toast('Enter the sensor depth B (cable length below the measuring point)', 'warn'); return false; }
+      if (!(A >= -10 && A <= 10)) { toast('A must be between −10 and 10 m', 'warn'); return false; }
+      await wzSave({ mp_h: A, sens_depth: B });
+      return true;
+    },
+  },
+  {
+    id: 'level', title: 'Field level check', sub: 'Compare with a dip meter', skip: true,
+    render(el) {
+      wz.hist = [];
+      el.innerHTML = `<div class="grid"><div>
+          <div class="muted small">Depth to water (device)</div><div class="bigval" id="wzD">–</div>
+          <div class="muted small" id="wzDsub"></div>
+          <div class="stab" id="wzStab"><span></span><b>Waiting for readings…</b></div>
+        </div><div>
+          <ol class="guide-list"><li>Wait until the reading is <b>stable</b> (sensor temperature settles in about 10 minutes).</li>
+          <li>Measure the water level with the dip meter and enter it.</li><li>Press <b>Apply correction</b>: the device takes a fresh averaged reading and sets the level offset.</li></ol>
+        </div></div>
+        <div class="row" style="margin-top:8px"><input type="number" id="wzDip" step="0.01" placeholder="dip meter, m" style="max-width:160px">
+          <select id="wzDipRef" style="width:auto"><option value="mp">from MP</option><option value="gl">below ground</option></select>
+          <button class="btn primary" type="button" id="wzDipGo">Apply correction</button><span id="wzDipMsg"></span></div>`;
+      wv('wzDipGo').onclick = (e) => busy(e.currentTarget, async () => {
+        const v = num('wzDip');
+        if (!Number.isFinite(v)) { toast('Enter the dip-meter reading', 'warn'); return; }
+        const dtw = wv('wzDipRef').value === 'mp' ? v - Number(current.mp_h || 0) : v;
+        wv('wzDipMsg').textContent = 'Taking an averaged reading…'; wv('wzDipMsg').className = 'muted';
+        try {
+          const r = await call('level_set', { dtw }, 180000);
+          current.lvl_ofs = r.lvl_ofs; wz.level = { dtw, ofs: r.lvl_ofs };
+          wv('wzDipMsg').textContent = `Done: ${dtw.toFixed(2)} m below ground, level offset ${r.lvl_ofs >= 0 ? '+' : ''}${r.lvl_ofs.toFixed(3)} m`;
+          wv('wzDipMsg').className = Math.abs(r.lvl_ofs) > 0.5 ? 'warn' : 'ok';
+          if (Math.abs(r.lvl_ofs) > 0.5) toast('The correction is large: re-check A, B and the sensor range.', 'warn', 8000);
+        } catch (err) { wv('wzDipMsg').textContent = err.message; wv('wzDipMsg').className = 'bad'; }
+      });
+    },
+    live(s) {
+      const l = s.live || {};
+      if (!wv('wzD')) return;
+      wv('wzD').textContent = Number.isFinite(l.dtw) ? `${l.dtw.toFixed(3)} m` : '–';
+      wv('wzDsub').textContent = Number.isFinite(l.wc) ? `water column ${l.wc.toFixed(3)} m · ${fmt(l.ma, 3, ' mA')}` : (l.q_txt || '').replace(/_/g, ' ').toLowerCase();
+      if (Number.isFinite(l.dtw)) wz.hist.push({ t: Date.now(), v: l.dtw });
+      wz.hist = wz.hist.filter((h) => Date.now() - h.t < 90000);
+      const recent = wz.hist.filter((h) => Date.now() - h.t < 60000);
+      const st = wv('wzStab');
+      if (recent.length < 8) { st.className = 'stab'; st.lastChild.textContent = `Collecting readings (${recent.length}/8)…`; return; }
+      const vals = recent.map((h) => h.v), spread = Math.max(...vals) - Math.min(...vals);
+      const ok = spread <= 0.01;
+      st.className = 'stab ' + (ok ? 'ok' : 'warn');
+      st.lastChild.textContent = ok ? `Stable (±${(spread * 50).toFixed(1)} cm over 1 min)` : `Still settling (${(spread * 100).toFixed(1)} cm change in 1 min)`;
+    },
+    async next() { return true; },
+  },
+  {
+    id: 'comm', title: 'Network & interval', sub: 'APN and how often to send',
+    render(el) {
+      el.innerHTML = '<div class="form" id="wzForm"></div><div class="kv" id="wzNetKv" style="margin-top:12px"></div>';
+      const apnKnown = APN_CHOICES.some(([v]) => v === (current.apn || ''));
+      wv('wzForm').append(
+        wzField('SIM operator / APN', 'apn', `<select id="wzApn">${APN_CHOICES.map(([v, t]) => `<option value="${v}" ${v === (current.apn || '') ? 'selected' : ''}>${t}${v ? ` (${v})` : ''}</option>`).join('')}
+          <option value="__c" ${apnKnown ? '' : 'selected'}>Other (type it)</option></select>
+          <input type="text" id="wzApnC" class="${apnKnown ? 'hidden' : ''}" style="margin-top:6px" value="${apnKnown ? '' : esc(current.apn || '')}" placeholder="apn.example">`),
+        wzField('Reading & sending interval', 'log_min', `<select id="wzLog">${LOG_CHOICES.map((m) => `<option value="${m}" ${m === Number(current.log_min) ? 'selected' : ''}>every ${m} min</option>`).join('')}</select>`,
+          'Each reading is sent as soon as it is taken (and stored on the device if the network is down).'),
+        wzField('Health report (heartbeat)', 'hb_min', `<select id="wzHb"><option value="same">same as the reading interval</option>${LOG_CHOICES.map((m) => `<option value="${m}" ${m === Number(current.hb_min) && m !== Number(current.log_min) ? 'selected' : ''}>every ${m} min</option>`).join('')}</select>`));
+      wv('wzApn').onchange = () => wv('wzApnC').classList.toggle('hidden', wv('wzApn').value !== '__c');
+    },
+    live(s) {
+      const n = s.net || {}, c = s.cloud || {};
+      if (wv('wzNetKv')) kv(wv('wzNetKv'), [['Network', n.state, n.state === 'ONLINE' ? 'ok' : 'warn'], ['Operator', `${n.oper || '–'} ${n.tech || ''}`],
+        ['Signal', n.csq === undefined || n.csq === 99 ? 'no signal' : `CSQ ${n.csq}`], ['Cloud', c.connected ? 'connected' : 'not connected', c.connected ? 'ok' : 'warn']]);
+    },
+    async next() {
+      const apn = wv('wzApn').value === '__c' ? wv('wzApnC').value.trim() : wv('wzApn').value;
+      const log = Number(wv('wzLog').value), hb = wv('wzHb').value === 'same' ? log : Number(wv('wzHb').value);
+      const o = { log_min: log, hb_min: hb };
+      if (apn !== (current.apn || '')) o.apn = apn;
+      await wzSave(o);
+      return true;
+    },
+  },
+  {
+    id: 'finish', title: 'Test & finish', sub: 'Send to the cloud',
+    render(el) {
+      el.innerHTML = `<div class="grid"><div><h3 style="margin-top:0">Installation summary</h3><div class="kv" id="wzSum"></div></div>
+        <div><h3 style="margin-top:0">Cloud test</h3><p class="muted" style="margin-top:0">Takes a reading and checks it arrives on the server (up to 2 minutes).</p>
+          <button class="btn primary" type="button" id="wzTest">Run cloud test</button><ul class="steps" id="wzTestSteps" style="margin-top:10px"></ul><div id="wzTestRes"></div></div></div>`;
+      const c = current, span = (c.rng_hi || 0) - (c.rng_lo || 0);
+      kv(wv('wzSum'), [['Site', c.site || '–'], ['Location', c.lat || c.lon ? `${Number(c.lat).toFixed(6)}, ${Number(c.lon).toFixed(6)}` : 'not set', c.lat || c.lon ? '' : 'warn'],
+        ['Sensor range', `${c.rng_lo} … ${c.rng_hi} m, SG ${c.sg}`], ['Sensor zero', `${Number(c.zero_ua || 0).toFixed(1)} µA (${((c.zero_ua || 0) / 16000 * span * 100).toFixed(1)} cm)`],
+        ['A · MP height', `${c.mp_h} m`], ['B · Sensor depth', `${c.sens_depth} m`, c.sens_depth > 0 ? '' : 'bad'], ['Level offset', `${Number(c.lvl_ofs || 0).toFixed(3)} m`, Math.abs(c.lvl_ofs) > 0.5 ? 'warn' : ''],
+        ['Reduced level', c.rl_en ? `on, ground ${c.gl_elev} m MSL` : 'off'], ['Interval', `every ${c.log_min} min`], ['APN', c.apn || 'automatic']]);
+      wv('wzTest').onclick = (e) => busy(e.currentTarget, async () => {
+        const list = wv('wzTestSteps');
+        list.innerHTML = '<li><span class="mark run">…</span><b>Running</b><span class="muted">up to 2 minutes</span></li>'; wv('wzTestRes').innerHTML = '';
+        try {
+          const r = await call('cloud_test', { measure: true }, 200000);
+          list.innerHTML = '';
+          for (const st of r.steps) {
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="mark ${st.ok ? 'ok' : 'bad'}">${st.ok ? '✓' : '✗'}</span><b>${esc(st.step)}</b><span></span>`;
+            li.lastChild.textContent = st.detail; list.append(li);
+          }
+          wz.test = r.passed;
+          wv('wzTestRes').innerHTML = r.passed ? '<span class="pill ok">PASSED: data reaches the server</span>' : '<span class="pill bad">FAILED: see the steps; the device keeps the readings and retries</span>';
+        } catch (err) { list.innerHTML = ''; wv('wzTestRes').innerHTML = `<span class="bad">${esc(err.message)}</span>`; }
+      });
+    },
+    async next() {
+      if (wz.test !== true && !(await confirmBox('Finish without a passed cloud test?', 'Readings are stored on the device and sent once the connection works.', 'Finish'))) return false;
+      toast('Installation complete', 'ok', 5000);
+      showTab('overview');
+      return true;
+    },
+  },
+];
+
+function wzRenderStepper() {
+  const ol = wv('wzSteps'); ol.innerHTML = '';
+  WZ_STEPS.forEach((st, i) => {
+    const li = document.createElement('li');
+    li.className = (i === wz.i ? 'cur ' : '') + (wz.done[st.id] ? 'done' : '');
+    li.innerHTML = `<span class="n">${wz.done[st.id] && i !== wz.i ? '✓' : i + 1}</span><span><b>${esc(st.title)}</b><small>${esc(st.sub)}</small></span>`;
+    li.onclick = () => wzGo(i);
+    ol.append(li);
+  });
+}
+function wzGo(i) {
+  const prev = WZ_STEPS[wz.i];
+  if (prev && prev.leave) prev.leave();
+  wz.i = Math.max(0, Math.min(WZ_STEPS.length - 1, i));
+  wzStore();
+  const st = WZ_STEPS[wz.i];
+  if (lastStatus && lastStatus.live) lastLive = lastStatus.live;
+  wv('wzTitle').textContent = `Step ${wz.i + 1} of ${WZ_STEPS.length} · ${st.title}`;
+  wv('wzBar').value = wz.i / (WZ_STEPS.length - 1) * 100;
+  st.render(wv('wzBody'));
+  if (st.live && lastStatus) st.live(lastStatus);
+  wv('wzBack').disabled = wz.i === 0;
+  wv('wzSkip').classList.toggle('hidden', !st.skip);
+  wv('wzNext').textContent = wz.i === WZ_STEPS.length - 1 ? 'Finish' : 'Save & continue';
+  wzRenderStepper();
+  wv('tab-setup').scrollIntoView({ block: 'start' });
+}
+async function wzStart() {
+  wv('wzBody').innerHTML = '<p class="muted">Loading settings from the device…</p>';
+  try {
+    if (!schema.length) schema = await loadSchema();
+    current = await call('cfg_get');
+  } catch (e) { wv('wzBody').innerHTML = `<p class="bad">Could not read the settings: ${esc(e.message)}</p>`; return; }
+  wzLoad();
+  wzGo(wz.i);
+}
+function wzLive(s) {
+  const st = WZ_STEPS[wz.i];
+  if (st && st.live && currentTab === 'setup') st.live(s);
+}
+wv('wzBack').onclick = () => wzGo(wz.i - 1);
+wv('wzSkip').onclick = () => wzGo(wz.i + 1);
+wv('wzNext').onclick = (e) => busy(e.currentTarget, async () => {
+  const st = WZ_STEPS[wz.i];
+  try {
+    if (!(await st.next())) return;
+  } catch (err) { toast('Could not save: ' + err.message, 'bad', 7000); return; }
+  wz.done[st.id] = true;
+  if (wz.i < WZ_STEPS.length - 1) wzGo(wz.i + 1); else { wzStore(); wzRenderStepper(); }
+});
+
+$('btnOvSetup').onclick = () => showTab('setup');
+</script>
+</body>
+</html>
