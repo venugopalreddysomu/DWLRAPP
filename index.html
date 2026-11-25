@@ -1102,8 +1102,8 @@ function updateSaveBar() {
 }
 /* ---------- help texts: [title, explanation, example] ---------- */
 const HELP = {
-  log_min: ['Logging interval', 'How often a water-level reading is stored and sent. Readings are taken on clock boundaries (15 min → :00, :15, :30, :45).', 'Groundwater monitoring: 15–60 min. Pumping tests: 1–5 min.'],
-  hb_min: ['Heartbeat interval', 'How often the device sends its health (signal, battery/heap, alarms, uptime) to the cloud, independent of readings.', 'Usually the same as the logging interval.'],
+  log_min: ['Reading & sending interval', 'How often a water-level reading is stored and sent, from 1 minute to 1440 minutes (24 hours). Readings are taken on clock boundaries (15 min → :00, :15, :30, :45; 1440 → once a day at midnight). Can also be set from the cloud: shared attribute log_min, or config {"command":1,"si":<minutes>}.', 'Groundwater monitoring: 15–60 min. Compliance reporting: 360 (6 h) or 1440 (daily). Pumping tests: 1–5 min.'],
+  hb_min: ['Heartbeat interval', 'How often the device sends its health (uptime, signal, backlog, alarms, live reading) to the cloud, from 1 minute to 1440 minutes (24 hours), independent of readings. Start-up details (firmware version, reset reason, boot count) are only included in the first 5 heartbeats after a restart. Cloud: shared attribute hb_min, or config {"command":1,"hsi":<seconds>}.', 'Usually the same as the reading interval.'],
   avg_s: ['Averaging period', 'For every reading the 4–20 mA input is sampled for this many seconds and averaged. Longer averaging removes ripple from long cables and pumps.', '10 s is good for most wells; use 20–30 s near running pumps.'],
   trim_pct: ['Outlier trim', 'Before averaging, this percentage of the highest and lowest samples is discarded, so short spikes do not affect the reading.', '20 % (default).'],
   noise_ua: ['Noise threshold', 'If the samples within one reading scatter more than this (standard deviation), the reading is flagged NOISY. 1 mA ≈ 1/16 of the sensor range.', '50 µA (default).'],
@@ -1131,7 +1131,7 @@ const HELP = {
   al_hyst: ['Alarm hysteresis', 'The level must move back by this much before an alarm clears, so it does not toggle on small ripples.', '0.1 m.'],
   sms_en: ['Alarm SMS', 'Send an SMS to the numbers below when an alarm starts or clears.', ''],
   sms_nums: ['SMS numbers', 'Up to 4 numbers with country code, separated by commas.', '+919876543210,+919812345678'],
-  apn: ['APN', 'Access point name of the SIM operator. Leave empty: the device picks it from the operator automatically.', 'Jio: jionet · Airtel: airtelgprs.com · BSNL: bsnlnet'],
+  apn: ['APN', 'Access point name of the SIM operator. Leave empty: the device picks it from the operator automatically. Can be changed from the cloud (shared attribute apn). If a newly set APN fails to connect 3 times, the device returns to the last APN that worked.', 'Jio: jionet · Airtel: airtelgprs.com · BSNL: bsnlnet'],
   apn_user: ['APN user', 'Only for private APNs (M2M SIMs). Normally empty.', ''],
   apn_pass: ['APN password', 'Only for private APNs. *** keeps the stored value.', ''],
   mdm_cmux: ['CMUX', 'Lets the device read signal strength while online. Needs the modem RX line fix on the board; leave off otherwise.', ''],
@@ -1468,11 +1468,18 @@ function renderSettings() {
       input.dataset.key = s.k; input.dataset.type = s.t;
       const hint = document.createElement('div'); hint.className = 'hint';
       const hints = [];
-      if (s.t === 'int' || s.t === 'float') hints.push(`${s.min} … ${s.max}`);
+      const isMinutes = s.u === 'min' && s.max >= 60;
+      if (s.t === 'int' || s.t === 'float') hints.push(isMinutes ? `${s.min} … ${s.max} min (up to ${s.max / 60} h)` : `${s.min} … ${s.max}`);
       if (s.reboot) hints.push('applies after reboot');
       if (s.secret) hints.push('*** keeps the stored value');
-      hint.textContent = hints.join(' · ');
+      const hintText = () => {
+        const v = Number(input.value);
+        const words = isMinutes && v >= 60 && v <= s.max ? ` · = ${Math.floor(v / 60)} h${v % 60 ? ' ' + (v % 60) + ' min' : ''}` : '';
+        hint.textContent = hints.join(' · ') + words;
+      };
+      hintText();
       input.oninput = input.onchange = () => {
+        hintText();
         const v = readValue(input);
         const out = (s.t === 'int' || s.t === 'float') && (Number.isNaN(v) || v < s.min || v > s.max);
         f.classList.toggle('invalid', out);
@@ -1760,7 +1767,12 @@ $('btnFactory').onclick = async () => {
 const wz = { i: 0, done: {}, hist: [], zero: null, level: null, test: null };
 const TZ_CHOICES = [['IST-5:30', 'India (IST, UTC+5:30)'], ['UTC0', 'UTC'], ['NPT-5:45', 'Nepal (UTC+5:45)'], ['BDT-6', 'Bangladesh (UTC+6)'], ['<+04>-4', 'Gulf (UTC+4)']];
 const APN_CHOICES = [['', 'Automatic (recommended)'], ['jionet', 'Jio'], ['airtelgprs.com', 'Airtel'], ['bsnlnet', 'BSNL'], ['www', 'Vi (Vodafone Idea)']];
-const LOG_CHOICES = [5, 10, 15, 30, 60, 120];
+const LOG_CHOICES = [1, 5, 10, 15, 30, 60, 120, 180, 240, 360, 480, 720, 1440];   /* minutes, up to 24 h */
+function everyLabel(m) { return m < 60 ? `every ${m} min` : m === 1440 ? 'once a day (24 h)' : `every ${m / 60} h`; }
+function intervalOpts(value, skip) {
+  const list = LOG_CHOICES.includes(Number(value)) || value === undefined ? LOG_CHOICES : [...LOG_CHOICES, Number(value)].sort((a, b) => a - b);
+  return list.map((m) => `<option value="${m}" ${m === Number(value) && !skip ? 'selected' : ''}>${LOG_CHOICES.includes(m) ? everyLabel(m) : `every ${m} min`}</option>`).join('');
+}
 
 function wzKey() { return 'dwlr.wizard.' + ((lastStatus && lastStatus.device && lastStatus.device.id) || 'device'); }
 function wzLoad() {
@@ -2036,9 +2048,9 @@ const WZ_STEPS = [
         wzField('SIM operator / APN', 'apn', `<select id="wzApn">${APN_CHOICES.map(([v, t]) => `<option value="${v}" ${v === (current.apn || '') ? 'selected' : ''}>${t}${v ? ` (${v})` : ''}</option>`).join('')}
           <option value="__c" ${apnKnown ? '' : 'selected'}>Other (type it)</option></select>
           <input type="text" id="wzApnC" class="${apnKnown ? 'hidden' : ''}" style="margin-top:6px" value="${apnKnown ? '' : esc(current.apn || '')}" placeholder="apn.example">`),
-        wzField('Reading & sending interval', 'log_min', `<select id="wzLog">${LOG_CHOICES.map((m) => `<option value="${m}" ${m === Number(current.log_min) ? 'selected' : ''}>every ${m} min</option>`).join('')}</select>`,
+        wzField('Reading & sending interval', 'log_min', `<select id="wzLog">${intervalOpts(current.log_min)}</select>`,
           'Each reading is sent as soon as it is taken (and stored on the device if the network is down).'),
-        wzField('Health report (heartbeat)', 'hb_min', `<select id="wzHb"><option value="same">same as the reading interval</option>${LOG_CHOICES.map((m) => `<option value="${m}" ${m === Number(current.hb_min) && m !== Number(current.log_min) ? 'selected' : ''}>every ${m} min</option>`).join('')}</select>`));
+        wzField('Health report (heartbeat)', 'hb_min', `<select id="wzHb"><option value="same">same as the reading interval</option>${intervalOpts(current.hb_min, Number(current.hb_min) === Number(current.log_min))}</select>`));
       wv('wzApn').onchange = () => wv('wzApnC').classList.toggle('hidden', wv('wzApn').value !== '__c');
     },
     live(s) {
@@ -2065,7 +2077,7 @@ const WZ_STEPS = [
       kv(wv('wzSum'), [['Site', c.site || '–'], ['Location', c.lat || c.lon ? `${Number(c.lat).toFixed(6)}, ${Number(c.lon).toFixed(6)}` : 'not set', c.lat || c.lon ? '' : 'warn'],
         ['Sensor range', `${c.rng_lo} … ${c.rng_hi} m, SG ${c.sg}`], ['Sensor zero', `${Number(c.zero_ua || 0).toFixed(1)} µA (${((c.zero_ua || 0) / 16000 * span * 100).toFixed(1)} cm)`],
         ['A · MP height', `${c.mp_h} m`], ['B · Sensor depth', `${c.sens_depth} m`, c.sens_depth > 0 ? '' : 'bad'], ['Level offset', `${Number(c.lvl_ofs || 0).toFixed(3)} m`, Math.abs(c.lvl_ofs) > 0.5 ? 'warn' : ''],
-        ['Reduced level', c.rl_en ? `on, ground ${c.gl_elev} m MSL` : 'off'], ['Interval', `every ${c.log_min} min`], ['APN', c.apn || 'automatic']]);
+        ['Reduced level', c.rl_en ? `on, ground ${c.gl_elev} m MSL` : 'off'], ['Interval', everyLabel(Number(c.log_min))], ['APN', c.apn || 'automatic']]);
       wv('wzTest').onclick = (e) => busy(e.currentTarget, async () => {
         const list = wv('wzTestSteps');
         list.innerHTML = '<li><span class="mark run">…</span><b>Running</b><span class="muted">up to 2 minutes</span></li>'; wv('wzTestRes').innerHTML = '';
